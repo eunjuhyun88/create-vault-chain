@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { formatDistanceToNow, format, differenceInDays } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { CelebrationModal } from './Confetti';
 
 interface CampaignDetailViewProps {
   campaign: Campaign;
@@ -22,15 +23,16 @@ interface Task {
   description: string;
   reward: number;
   completed: boolean;
+  claimed: boolean;
   progress: number;
   target: number;
 }
 
 const mockTasks: Task[] = [
-  { id: '1', title: 'Mint 3 Passports', description: 'Create and mint AI-generated content', reward: 100, completed: true, progress: 3, target: 3 },
-  { id: '2', title: 'Share via MemePing', description: 'Share your passports on social media', reward: 50, completed: false, progress: 2, target: 5 },
-  { id: '3', title: 'Reach 10K PIM', description: 'Accumulate PIM score from engagement', reward: 200, completed: false, progress: 6500, target: 10000 },
-  { id: '4', title: 'Invite 2 Friends', description: 'Get friends to join the campaign', reward: 150, completed: false, progress: 1, target: 2 },
+  { id: '1', title: 'Mint 3 Passports', description: 'Create and mint AI-generated content', reward: 100, completed: true, claimed: false, progress: 3, target: 3 },
+  { id: '2', title: 'Share via MemePing', description: 'Share your passports on social media', reward: 50, completed: false, claimed: false, progress: 2, target: 5 },
+  { id: '3', title: 'Reach 10K PIM', description: 'Accumulate PIM score from engagement', reward: 200, completed: false, claimed: false, progress: 6500, target: 10000 },
+  { id: '4', title: 'Invite 2 Friends', description: 'Get friends to join the campaign', reward: 150, completed: false, claimed: false, progress: 1, target: 2 },
 ];
 
 const mockLeaderboard = [
@@ -43,39 +45,61 @@ const mockLeaderboard = [
 
 export function CampaignDetailView({ campaign, onBack }: CampaignDetailViewProps) {
   const [activeTab, setActiveTab] = useState<'tasks' | 'leaderboard' | 'rewards'>('tasks');
-  const [isJoined, setIsJoined] = useState(campaign.status === 'active');
+  const [isJoined, setIsJoined] = useState(false);
   const [tasks, setTasks] = useState(mockTasks);
   const [claimingReward, setClaimingReward] = useState<string | null>(null);
+  const [celebration, setCelebration] = useState<{
+    isOpen: boolean;
+    title: string;
+    reward: number;
+    type: 'task' | 'campaign' | 'claim';
+  }>({ isOpen: false, title: '', reward: 0, type: 'task' });
   const { toast } = useToast();
 
   const completedTasks = tasks.filter(t => t.completed).length;
-  const totalReward = tasks.reduce((sum, t) => sum + (t.completed ? t.reward : 0), 0);
-  const pendingReward = tasks.filter(t => t.completed).reduce((sum, t) => sum + t.reward, 0);
+  const claimableTasks = tasks.filter(t => t.completed && !t.claimed);
+  const totalReward = tasks.reduce((sum, t) => sum + (t.claimed ? t.reward : 0), 0);
+  const pendingReward = claimableTasks.reduce((sum, t) => sum + t.reward, 0);
   const daysLeft = differenceInDays(campaign.endDate, new Date());
 
   const handleJoin = () => {
     setIsJoined(true);
-    toast({
-      title: '🎉 Campaign Joined!',
-      description: `You're now participating in "${campaign.name}"`,
+    setCelebration({
+      isOpen: true,
+      title: campaign.name,
+      reward: 0,
+      type: 'campaign'
     });
   };
 
   const handleClaimReward = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
     setClaimingReward(taskId);
     setTimeout(() => {
       setClaimingReward(null);
-      toast({
-        title: '🎁 Reward Claimed!',
-        description: `+${tasks.find(t => t.id === taskId)?.reward} PLART added to your wallet`,
+      setTasks(prev => prev.map(t => 
+        t.id === taskId ? { ...t, claimed: true } : t
+      ));
+      setCelebration({
+        isOpen: true,
+        title: task.title,
+        reward: task.reward,
+        type: 'claim'
       });
-    }, 1500);
+    }, 1000);
   };
 
   const handleClaimAll = () => {
-    toast({
-      title: '🎁 All Rewards Claimed!',
-      description: `+${pendingReward} PLART added to your wallet`,
+    setTasks(prev => prev.map(t => 
+      t.completed ? { ...t, claimed: true } : t
+    ));
+    setCelebration({
+      isOpen: true,
+      title: 'All Tasks Completed!',
+      reward: pendingReward,
+      type: 'claim'
     });
   };
 
@@ -386,6 +410,15 @@ export function CampaignDetailView({ campaign, onBack }: CampaignDetailViewProps
           )}
         </AnimatePresence>
       </div>
+
+      {/* Celebration Modal */}
+      <CelebrationModal
+        isOpen={celebration.isOpen}
+        onClose={() => setCelebration(prev => ({ ...prev, isOpen: false }))}
+        title={celebration.title}
+        reward={celebration.reward}
+        type={celebration.type}
+      />
     </motion.div>
   );
 }
