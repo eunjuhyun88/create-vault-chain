@@ -162,14 +162,14 @@ export function AssetCard({
           <Button
             variant="outline"
             size="sm"
-            className="w-full mt-2 h-8 text-xs border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground transition-all group"
+            className="w-full mt-2 h-8 text-[10px] border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground transition-all group overflow-hidden"
             onClick={(e) => {
               e.stopPropagation();
               onMint?.(asset.id);
             }}
           >
-            <Plus className="w-3 h-3 mr-1 group-hover:rotate-90 transition-transform" />
-            MATERIALIZE TO WALLET
+            <Plus className="w-3 h-3 mr-1 flex-shrink-0 group-hover:rotate-90 transition-transform" />
+            <span className="truncate">MINT</span>
           </Button>
         )}
       </div>
