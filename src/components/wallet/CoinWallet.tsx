@@ -43,9 +43,31 @@ export function CoinWallet({ onClose }: CoinWalletProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Constants for validation
+  const MAX_MEMO_LENGTH = 256;
+  const MAX_TRANSACTION_AMOUNT = 1000000; // Maximum single transaction limit
+  const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
   // Ethereum address validation regex (0x + 40 hex characters)
   const isValidEthAddress = (address: string): boolean => {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
+  };
+
+  // Check if address is zero address
+  const isZeroAddress = (address: string): boolean => {
+    return address.toLowerCase() === ZERO_ADDRESS.toLowerCase();
+  };
+
+  // Sanitize memo field - remove potentially dangerous characters
+  const sanitizeMemo = (memo: string): string => {
+    return memo.slice(0, MAX_MEMO_LENGTH).replace(/[<>]/g, '');
+  };
+
+  // Handle memo input with length limit
+  const handleMemoChange = (value: string) => {
+    if (value.length <= MAX_MEMO_LENGTH) {
+      setSendMemo(value);
+    }
   };
 
   const handleSend = async () => {
@@ -63,21 +85,59 @@ export function CoinWallet({ onClose }: CoinWalletProps) {
       });
       return;
     }
+
+    // Check for zero address
+    if (isZeroAddress(sendAddress)) {
+      toast({ 
+        title: 'Invalid recipient', 
+        description: 'Cannot send to zero address',
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    // Check for sending to own address
+    if (sendAddress.toLowerCase() === wallet.address.toLowerCase()) {
+      toast({ 
+        title: 'Invalid recipient', 
+        description: 'Cannot send tokens to your own address',
+        variant: 'destructive' 
+      });
+      return;
+    }
     
+    // Parse and validate amount - use integer math to avoid floating point issues
     const amount = parseFloat(sendAmount);
     if (isNaN(amount) || amount <= 0) {
       toast({ title: 'Invalid amount', variant: 'destructive' });
       return;
     }
-    if (amount > wallet.plartBalance) {
+
+    // Round to avoid floating point precision issues
+    const roundedAmount = Math.round(amount * 100) / 100;
+
+    // Check maximum transaction limit
+    if (roundedAmount > MAX_TRANSACTION_AMOUNT) {
+      toast({ 
+        title: 'Amount too large', 
+        description: `Maximum single transaction is ${MAX_TRANSACTION_AMOUNT.toLocaleString()} PLART`,
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    if (roundedAmount > wallet.plartBalance) {
       toast({ title: 'Insufficient balance', variant: 'destructive' });
       return;
     }
 
+    // Sanitize memo before sending
+    const sanitizedMemo = sendMemo ? sanitizeMemo(sendMemo) : undefined;
+
     setIsSending(true);
     try {
-      await sendTokens(sendAddress, amount, sendMemo || undefined);
-      toast({ title: 'Transaction sent!', description: `${amount} PLART sent successfully.` });
+      await sendTokens(sendAddress, roundedAmount, sanitizedMemo);
+      toast({ title: 'Transaction sent!', description: `${roundedAmount} PLART sent successfully.` });
       setSendAddress('');
       setSendAmount('');
       setSendMemo('');
@@ -177,9 +237,12 @@ export function CoinWallet({ onClose }: CoinWalletProps) {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Memo (Optional)</label>
-                <Input value={sendMemo} onChange={(e) => setSendMemo(e.target.value)}
-                  placeholder="Payment for..." className="bg-input border-primary/20" />
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-muted-foreground">Memo (Optional)</label>
+                  <span className="text-[10px] text-muted-foreground">{sendMemo.length}/{MAX_MEMO_LENGTH}</span>
+                </div>
+                <Input value={sendMemo} onChange={(e) => handleMemoChange(e.target.value)}
+                  placeholder="Payment for..." className="bg-input border-primary/20" maxLength={MAX_MEMO_LENGTH} />
               </div>
               <Button className="w-full h-11 font-display tracking-wider mt-4" onClick={handleSend} disabled={isSending}>
                 {isSending ? 'SENDING...' : 'SEND PLART'}
