@@ -49,14 +49,29 @@ export interface MemePingEvent {
   timestamp: Date;
 }
 
+export interface Transaction {
+  id: string;
+  type: 'send' | 'receive' | 'mint_reward' | 'campaign_reward' | 'pim_claim';
+  amount: number;
+  from: string;
+  to: string;
+  timestamp: Date;
+  status: 'pending' | 'confirmed' | 'failed';
+  hash: string;
+  memo?: string;
+}
+
 export interface WalletState {
   address: string;
   balance: number;
+  plartBalance: number;
+  ethBalance: number;
   isConnected: boolean;
   isLocked: boolean;
   scannedAssets: ScannedAsset[];
   mintedPassports: PassportAsset[];
   campaigns: Campaign[];
+  transactions: Transaction[];
 }
 
 export interface SessionStatus {

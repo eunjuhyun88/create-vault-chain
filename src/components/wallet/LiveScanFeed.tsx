@@ -17,6 +17,11 @@ import {
 
 interface LiveScanFeedProps {
   assets: ScannedAsset[];
+  onShareViaMemePing?: (passport: PassportAsset) => void;
+}
+
+interface LiveScanFeedProps {
+  assets: ScannedAsset[];
 }
 
 const demoAssets: ScannedAsset[] = [

@@ -1,15 +1,21 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PassportAsset, MemePingEvent } from '@/types/wallet';
+import { PassportAsset } from '@/types/wallet';
 import { ServiceBadge } from './ServiceBadge';
 import { 
   Send, TrendingUp, Eye, Heart, Share2, MessageCircle, Repeat2, 
   Hash, ExternalLink, Twitter, Globe, Filter, RefreshCw, Sparkles,
-  Image, ChevronRight, Plus, Zap
+  ChevronRight, Plus, Zap, Megaphone
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { MemePingModal } from './MemePingModal';
+import { useWallet } from '@/contexts/WalletContext';
+
+interface MemePingDashboardProps {
+  onNavigateToCampaigns?: () => void;
+  onOpenShareModal?: (asset: PassportAsset) => void;
+}
 
 interface MemePingPost {
   id: string;
@@ -18,22 +24,14 @@ interface MemePingPost {
   content: string;
   timestamp: Date;
   asset: PassportAsset;
-  metrics: {
-    views: number;
-    likes: number;
-    shares: number;
-    quotes: number;
-    remixes: number;
-  };
+  metrics: { views: number; likes: number; shares: number; quotes: number; remixes: number; };
   pimEarned: number;
   status: 'tracking' | 'viral' | 'completed';
 }
 
 const demoPosts: MemePingPost[] = [
   {
-    id: '1',
-    platform: 'twitter',
-    postUrl: 'https://twitter.com/user/status/123',
+    id: '1', platform: 'twitter', postUrl: 'https://twitter.com/user/status/123',
     content: 'Check out my AI creation! 🎨 A cyberpunk city at night... #PlayArts #AIArt',
     timestamp: new Date(Date.now() - 7200000),
     asset: {
@@ -46,13 +44,10 @@ const demoPosts: MemePingPost[] = [
       trustLevel: 3, onChainTimestamp: new Date(Date.now() - 86400000), pimScore: 15420,
     },
     metrics: { views: 12450, likes: 847, shares: 234, quotes: 56, remixes: 12 },
-    pimEarned: 18420,
-    status: 'viral',
+    pimEarned: 18420, status: 'viral',
   },
   {
-    id: '2',
-    platform: 'farcaster',
-    postUrl: 'https://warpcast.com/user/cast/456',
+    id: '2', platform: 'farcaster', postUrl: 'https://warpcast.com/user/cast/456',
     content: 'Generated this neural network vis using DALL·E 3. Proof on-chain via PlayArts! 🧠',
     timestamp: new Date(Date.now() - 14400000),
     asset: {
@@ -65,53 +60,33 @@ const demoPosts: MemePingPost[] = [
       trustLevel: 2, onChainTimestamp: new Date(Date.now() - 172800000), pimScore: 8750,
     },
     metrics: { views: 3200, likes: 245, shares: 67, quotes: 23, remixes: 5 },
-    pimEarned: 5430,
-    status: 'tracking',
-  },
-  {
-    id: '3',
-    platform: 'twitter',
-    postUrl: 'https://twitter.com/user/status/789',
-    content: 'My Runway-generated video entering the wormhole 🚀 #AIVideo #Runway',
-    timestamp: new Date(Date.now() - 43200000),
-    asset: {
-      id: '3', prompt: 'Cinematic video of a spaceship entering a wormhole',
-      previewUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=300&fit=crop',
-      sourceAI: 'runway', assetType: 'video', status: 'minted',
-      timestamp: new Date(Date.now() - 259200000), acpId: 'ACP_9P3KL7MN4',
-      cryptoHash: 'SHA256_0f1e2d3c4b5a6789', pHash: 'PHASH_1a2b3c4d5e6f',
-      evidenceCID: 'bafybeif3j3s7bcxvz7v2v7v2v7v2v7v2v7v2v7v2v7v2v7v2v7v2v7v2v',
-      trustLevel: 3, onChainTimestamp: new Date(Date.now() - 259200000), pimScore: 42100,
-    },
-    metrics: { views: 89000, likes: 5420, shares: 1890, quotes: 342, remixes: 78 },
-    pimEarned: 156780,
-    status: 'viral',
+    pimEarned: 5430, status: 'tracking',
   },
 ];
 
-const platformIcons = {
-  twitter: Twitter,
-  farcaster: MessageCircle,
-  lens: Globe,
-};
+const platformIcons = { twitter: Twitter, farcaster: MessageCircle, lens: Globe };
+const platformColors = { twitter: 'text-[#1DA1F2]', farcaster: 'text-[#8A63D2]', lens: 'text-[#ABFE2C]' };
 
-const platformColors = {
-  twitter: 'text-[#1DA1F2]',
-  farcaster: 'text-[#8A63D2]',
-  lens: 'text-[#ABFE2C]',
-};
-
-export function MemePingDashboard() {
+export function MemePingDashboard({ onNavigateToCampaigns, onOpenShareModal }: MemePingDashboardProps) {
   const [posts] = useState<MemePingPost[]>(demoPosts);
   const [filterPlatform, setFilterPlatform] = useState<'all' | 'twitter' | 'farcaster' | 'lens'>('all');
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedAssetForShare, setSelectedAssetForShare] = useState<PassportAsset | null>(null);
+  const { wallet } = useWallet();
 
   const filteredPosts = posts.filter(p => filterPlatform === 'all' || p.platform === filterPlatform);
-
   const totalPIM = posts.reduce((sum, p) => sum + p.pimEarned, 0);
   const totalViews = posts.reduce((sum, p) => sum + p.metrics.views, 0);
   const viralCount = posts.filter(p => p.status === 'viral').length;
+
+  const handleNewPost = () => {
+    if (wallet.mintedPassports.length > 0) {
+      setSelectedAssetForShare(wallet.mintedPassports[0]);
+      setShowShareModal(true);
+    } else if (onOpenShareModal) {
+      onOpenShareModal(demoPosts[0].asset);
+    }
+  };
 
   const handleShare = (platform: string, caption: string) => {
     console.log('Sharing to', platform, caption);
@@ -128,7 +103,7 @@ export function MemePingDashboard() {
             <Send className="w-4 h-4 text-primary" />
             <h2 className="font-display text-sm font-semibold">MEMEPING</h2>
           </div>
-          <Button size="sm" className="h-7 text-[10px]" onClick={() => setShowShareModal(true)}>
+          <Button size="sm" className="h-7 text-[10px]" onClick={handleNewPost}>
             <Plus className="w-3 h-3 mr-1" />New Post
           </Button>
         </div>
@@ -151,6 +126,22 @@ export function MemePingDashboard() {
             <p className="text-[10px] text-muted-foreground">Viral</p>
           </div>
         </div>
+
+        {/* Campaign Link Banner */}
+        {onNavigateToCampaigns && (
+          <motion.button initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+            onClick={onNavigateToCampaigns}
+            className="w-full mt-3 glass-card p-3 flex items-center justify-between hover:border-primary/40 transition-all group">
+            <div className="flex items-center gap-2">
+              <Megaphone className="w-4 h-4 text-warning" />
+              <div className="text-left">
+                <p className="text-xs font-medium text-foreground">Join Campaigns</p>
+                <p className="text-[10px] text-muted-foreground">Earn bonus rewards from brand campaigns</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          </motion.button>
+        )}
       </div>
 
       {/* Platform Filter */}
@@ -183,7 +174,6 @@ export function MemePingDashboard() {
               return (
                 <motion.div key={post.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }} className="glass-card overflow-hidden">
-                  {/* Post Header */}
                   <div className="flex items-center gap-3 p-3 border-b border-border/20">
                     <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
                       <img src={post.asset.previewUrl} alt="" className="w-full h-full object-cover" />
@@ -204,32 +194,18 @@ export function MemePingDashboard() {
                       </p>
                     </div>
                   </div>
-
-                  {/* Metrics Grid */}
                   <div className="grid grid-cols-5 gap-1 p-2 bg-muted/20">
-                    <div className="text-center">
-                      <Eye className="w-3 h-3 text-muted-foreground mx-auto" />
-                      <p className="text-[10px] text-foreground font-semibold">{(post.metrics.views / 1000).toFixed(1)}K</p>
-                    </div>
-                    <div className="text-center">
-                      <Heart className="w-3 h-3 text-destructive mx-auto" />
-                      <p className="text-[10px] text-foreground font-semibold">{post.metrics.likes}</p>
-                    </div>
-                    <div className="text-center">
-                      <Repeat2 className="w-3 h-3 text-success mx-auto" />
-                      <p className="text-[10px] text-foreground font-semibold">{post.metrics.shares}</p>
-                    </div>
-                    <div className="text-center">
-                      <MessageCircle className="w-3 h-3 text-primary mx-auto" />
-                      <p className="text-[10px] text-foreground font-semibold">{post.metrics.quotes}</p>
-                    </div>
-                    <div className="text-center">
-                      <Sparkles className="w-3 h-3 text-warning mx-auto" />
-                      <p className="text-[10px] text-foreground font-semibold">{post.metrics.remixes}</p>
-                    </div>
+                    <div className="text-center"><Eye className="w-3 h-3 text-muted-foreground mx-auto" />
+                      <p className="text-[10px] text-foreground font-semibold">{(post.metrics.views / 1000).toFixed(1)}K</p></div>
+                    <div className="text-center"><Heart className="w-3 h-3 text-destructive mx-auto" />
+                      <p className="text-[10px] text-foreground font-semibold">{post.metrics.likes}</p></div>
+                    <div className="text-center"><Repeat2 className="w-3 h-3 text-success mx-auto" />
+                      <p className="text-[10px] text-foreground font-semibold">{post.metrics.shares}</p></div>
+                    <div className="text-center"><MessageCircle className="w-3 h-3 text-primary mx-auto" />
+                      <p className="text-[10px] text-foreground font-semibold">{post.metrics.quotes}</p></div>
+                    <div className="text-center"><Sparkles className="w-3 h-3 text-warning mx-auto" />
+                      <p className="text-[10px] text-foreground font-semibold">{post.metrics.remixes}</p></div>
                   </div>
-
-                  {/* PIM Earned */}
                   <div className="flex items-center justify-between px-3 py-2 bg-primary/5">
                     <div className="flex items-center gap-2">
                       <Hash className="w-3 h-3 text-primary" />
@@ -240,8 +216,6 @@ export function MemePingDashboard() {
                       <span className="text-xs font-semibold text-success">+{post.pimEarned.toLocaleString()} PIM</span>
                     </div>
                   </div>
-
-                  {/* Actions */}
                   <div className="flex gap-2 p-2 border-t border-border/20">
                     <Button variant="ghost" size="sm" className="flex-1 h-7 text-[10px]">
                       <RefreshCw className="w-3 h-3 mr-1" />Refresh
@@ -262,11 +236,9 @@ export function MemePingDashboard() {
       {/* Share Modal */}
       <AnimatePresence>
         {showShareModal && selectedAssetForShare && (
-          <MemePingModal
-            asset={selectedAssetForShare}
+          <MemePingModal asset={selectedAssetForShare}
             onClose={() => { setShowShareModal(false); setSelectedAssetForShare(null); }}
-            onShare={handleShare}
-          />
+            onShare={handleShare} />
         )}
       </AnimatePresence>
     </div>

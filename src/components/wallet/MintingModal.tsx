@@ -10,6 +10,7 @@ interface MintingModalProps {
   asset: ScannedAsset;
   onComplete: (passport: PassportAsset) => void;
   onClose: () => void;
+  onShareViaMemePing?: (passport: PassportAsset) => void;
 }
 
 const stages = [
@@ -19,7 +20,7 @@ const stages = [
   { id: 'complete', label: 'ACP Minted', sublabel: 'Passport Ready', icon: Check },
 ];
 
-export function MintingModal({ asset, onComplete, onClose }: MintingModalProps) {
+export function MintingModal({ asset, onComplete, onClose, onShareViaMemePing }: MintingModalProps) {
   const [currentStage, setCurrentStage] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [mintedPassport, setMintedPassport] = useState<PassportAsset | null>(null);
@@ -31,7 +32,6 @@ export function MintingModal({ asset, onComplete, onClose }: MintingModalProps) 
         if (prev >= stages.length - 1) {
           clearInterval(interval);
           setIsComplete(true);
-          // Generate the passport data
           const passport: PassportAsset = {
             ...asset,
             status: 'minted',
@@ -66,7 +66,9 @@ export function MintingModal({ asset, onComplete, onClose }: MintingModalProps) 
   };
 
   const handleShareMemePing = () => {
-    toast({ title: 'Opening MemePing', description: 'Navigate to MemePing tab to share.' });
+    if (mintedPassport && onShareViaMemePing) {
+      onShareViaMemePing(mintedPassport);
+    }
     onClose();
   };
 
@@ -77,7 +79,6 @@ export function MintingModal({ asset, onComplete, onClose }: MintingModalProps) 
       <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
         className="glass-card p-6 w-[340px] relative overflow-hidden">
         
-        {/* Hologram Scan Effect */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <motion.div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-primary/10"
             animate={{ y: ['-100%', '100%'] }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} />
@@ -85,7 +86,6 @@ export function MintingModal({ asset, onComplete, onClose }: MintingModalProps) 
         </div>
 
         <div className="relative z-10">
-          {/* Asset Preview */}
           <div className="relative h-28 rounded-lg overflow-hidden mb-4 border border-primary/20">
             {asset.previewUrl ? (
               <img src={asset.previewUrl} alt="Asset" className="w-full h-full object-cover" />
@@ -95,12 +95,9 @@ export function MintingModal({ asset, onComplete, onClose }: MintingModalProps) 
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
-            <div className="absolute bottom-2 left-2">
-              <ServiceBadge service={asset.sourceAI} size="sm" />
-            </div>
+            <div className="absolute bottom-2 left-2"><ServiceBadge service={asset.sourceAI} size="sm" /></div>
           </div>
 
-          {/* Title */}
           <h3 className="font-display text-lg font-bold text-primary text-center mb-1">
             {isComplete ? 'ACP REGISTRATION COMPLETE' : 'REGISTERING ACP'}
           </h3>
@@ -108,14 +105,12 @@ export function MintingModal({ asset, onComplete, onClose }: MintingModalProps) 
             {isComplete ? 'Your AI Context Passport is verified' : 'Creating your AI Context Passport'}
           </p>
 
-          {/* Progress Stages */}
           {!isComplete && (
             <div className="space-y-2 mb-4">
               {stages.map((stage, index) => {
                 const Icon = stage.icon;
                 const isActive = currentStage === index;
                 const isDone = currentStage > index;
-
                 return (
                   <motion.div key={stage.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 }}
@@ -139,10 +134,8 @@ export function MintingModal({ asset, onComplete, onClose }: MintingModalProps) 
             </div>
           )}
 
-          {/* Complete: Show ACP Results */}
           {isComplete && mintedPassport && (
             <div className="space-y-3 mb-4">
-              {/* ACP ID */}
               <div className="glass-card p-3 border-primary/30">
                 <div className="flex items-center justify-between">
                   <div>
@@ -155,8 +148,6 @@ export function MintingModal({ asset, onComplete, onClose }: MintingModalProps) 
                   </button>
                 </div>
               </div>
-
-              {/* Hash Details */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="glass-card p-2">
                   <p className="text-[10px] text-muted-foreground mb-1">Crypto Hash</p>
@@ -167,8 +158,6 @@ export function MintingModal({ asset, onComplete, onClose }: MintingModalProps) 
                   <p className="text-[10px] font-mono text-foreground truncate">{mintedPassport.pHash}</p>
                 </div>
               </div>
-
-              {/* Trust Level */}
               <div className="flex items-center justify-center gap-2 py-2">
                 <span className="text-xs text-muted-foreground">Trust Level:</span>
                 <div className="flex gap-1">
@@ -178,8 +167,6 @@ export function MintingModal({ asset, onComplete, onClose }: MintingModalProps) 
                   ))}
                 </div>
               </div>
-
-              {/* Evidence CID */}
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                 <ExternalLink className="w-3 h-3" />
                 <span className="truncate font-mono">{mintedPassport.evidenceCID.slice(0, 30)}...</span>
@@ -187,7 +174,6 @@ export function MintingModal({ asset, onComplete, onClose }: MintingModalProps) 
             </div>
           )}
 
-          {/* Actions */}
           {isComplete ? (
             <div className="space-y-2">
               <Button className="w-full h-10 font-display tracking-wider" onClick={handleShareMemePing}>
