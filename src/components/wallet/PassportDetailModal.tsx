@@ -13,9 +13,10 @@ import { useToast } from '@/hooks/use-toast';
 interface PassportDetailModalProps {
   passport: PassportAsset;
   onClose: () => void;
+  onMemePing?: (asset: PassportAsset) => void;
 }
 
-export function PassportDetailModal({ passport, onClose }: PassportDetailModalProps) {
+export function PassportDetailModal({ passport, onClose, onMemePing }: PassportDetailModalProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -30,10 +31,14 @@ export function PassportDetailModal({ passport, onClose }: PassportDetailModalPr
   };
 
   const handleShare = () => {
-    toast({
-      title: 'Opening MemePing',
-      description: 'Share this passport across platforms.',
-    });
+    if (onMemePing) {
+      onMemePing(passport);
+    } else {
+      toast({
+        title: 'Opening MemePing',
+        description: 'Share this passport across platforms.',
+      });
+    }
   };
 
   return (

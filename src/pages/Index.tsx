@@ -12,7 +12,7 @@ import { MemePingModal } from '@/components/wallet/MemePingModal';
 import { Logo } from '@/components/wallet/Logo';
 import { useWallet, WalletProvider } from '@/contexts/WalletContext';
 import { PassportAsset } from '@/types/wallet';
-import { Radio, Vault, Send, Settings, Wallet } from 'lucide-react';
+import { Radio, Vault, Send, Settings, Wallet, Gift } from 'lucide-react';
 import { CampaignFooter } from '@/components/wallet/CampaignFooter';
 
 type TabId = 'feed' | 'vault' | 'wallet' | 'memeping' | 'campaigns';
@@ -37,6 +37,7 @@ function WalletApp() {
     { id: 'feed' as TabId, label: 'Feed', icon: Radio },
     { id: 'vault' as TabId, label: 'Vault', icon: Vault },
     { id: 'wallet' as TabId, label: 'Wallet', icon: Wallet },
+    { id: 'campaigns' as TabId, label: 'Campaign', icon: Gift },
     { id: 'memeping' as TabId, label: 'Ping', icon: Send },
   ];
 
@@ -92,8 +93,8 @@ function WalletApp() {
         </AnimatePresence>
       </main>
 
-      {/* Campaign Footer Banner */}
-      <CampaignFooter onClick={() => setActiveTab('campaigns')} />
+      {/* Campaign Footer Banner - only show when not on campaigns tab */}
+      {activeTab !== 'campaigns' && <CampaignFooter onClick={() => setActiveTab('campaigns')} />}
 
       {/* Bottom Navigation */}
       <nav className="flex items-center justify-around px-2 py-2 border-t border-border/30 bg-card/80 backdrop-blur-sm">
