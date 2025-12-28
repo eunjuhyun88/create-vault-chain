@@ -11,6 +11,7 @@ interface WalletContextType {
   lockWallet: () => void;
   unlockWallet: (pin: string) => boolean;
   addScannedAsset: (asset: ScannedAsset) => void;
+  updateScannedAsset: (assetId: string, updates: Partial<ScannedAsset>) => void;
   mintAsset: (assetId: string) => Promise<PassportAsset>;
   startSession: (service: AIService) => void;
   endSession: () => void;
@@ -37,7 +38,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [wallet, setWallet] = useState<WalletState>(defaultWallet);
   const [session, setSession] = useState<SessionStatus>(defaultSession);
-  const [storedPin] = useState('1234'); // Demo PIN
+  const [storedPin] = useState('1234');
 
   const connectWallet = () => {
     const mockAddress = '0x' + Array.from({ length: 40 }, () => 
@@ -71,13 +72,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   };
 
   const addScannedAsset = (asset: ScannedAsset) => {
-    setWallet(prev => ({
-      ...prev,
-      scannedAssets: [asset, ...prev.scannedAssets],
-    }));
+    setWallet(prev => {
+      // Check if asset already exists, update it if so
+      const existingIndex = prev.scannedAssets.findIndex(a => a.id === asset.id);
+      if (existingIndex >= 0) {
+        const updated = [...prev.scannedAssets];
+        updated[existingIndex] = asset;
+        return { ...prev, scannedAssets: updated };
+      }
+      return {
+        ...prev,
+        scannedAssets: [asset, ...prev.scannedAssets],
+      };
+    });
     setSession(prev => ({
       ...prev,
       scanningCount: prev.scanningCount + 1,
+    }));
+  };
+
+  const updateScannedAsset = (assetId: string, updates: Partial<ScannedAsset>) => {
+    setWallet(prev => ({
+      ...prev,
+      scannedAssets: prev.scannedAssets.map(asset =>
+        asset.id === assetId ? { ...asset, ...updates } : asset
+      ),
     }));
   };
 
@@ -85,8 +104,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     // Simulate minting delay
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    const asset = wallet.scannedAssets.find(a => a.id === assetId);
-    if (!asset) throw new Error('Asset not found');
+    // Find asset in scanned assets OR in demo assets
+    let asset = wallet.scannedAssets.find(a => a.id === assetId);
+    
+    // If not found in wallet, create a mock passport for demo purposes
+    if (!asset) {
+      // Create a fallback asset for demo
+      asset = {
+        id: assetId,
+        prompt: 'Demo AI generated content',
+        previewUrl: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&h=300&fit=crop',
+        sourceAI: 'midjourney' as AIService,
+        assetType: 'image',
+        status: 'captured',
+        timestamp: new Date(),
+      };
+    }
 
     const passport: PassportAsset = {
       ...asset,
@@ -97,6 +130,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       evidenceCID: 'bafybei' + Math.random().toString(36).substr(2, 46),
       trustLevel: Math.floor(Math.random() * 3) + 1 as 1 | 2 | 3,
       onChainTimestamp: new Date(),
+      pimScore: Math.floor(Math.random() * 10000) + 1000,
     };
 
     setWallet(prev => ({
@@ -131,6 +165,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       lockWallet,
       unlockWallet,
       addScannedAsset,
+      updateScannedAsset,
       mintAsset,
       startSession,
       endSession,

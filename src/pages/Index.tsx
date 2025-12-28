@@ -8,6 +8,7 @@ import { CampaignDashboard } from '@/components/wallet/CampaignDashboard';
 import { SettingsMenu } from '@/components/wallet/SettingsMenu';
 import { Logo } from '@/components/wallet/Logo';
 import { useWallet, WalletProvider } from '@/contexts/WalletContext';
+import { MemePingDashboard } from '@/components/wallet/MemePingDashboard';
 import { Radio, Vault, TrendingUp, Send, Settings, Wallet } from 'lucide-react';
 
 type TabId = 'feed' | 'vault' | 'campaigns' | 'memeping';
@@ -63,7 +64,7 @@ function WalletApp() {
           {activeTab === 'feed' && <motion.div key="feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full"><LiveScanFeed assets={wallet.scannedAssets} /></motion.div>}
           {activeTab === 'vault' && <motion.div key="vault" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full"><MyVault /></motion.div>}
           {activeTab === 'campaigns' && <motion.div key="campaigns" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full"><CampaignDashboard /></motion.div>}
-          {activeTab === 'memeping' && <motion.div key="memeping" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full flex items-center justify-center"><div className="text-center"><Send className="w-12 h-12 text-primary/50 mx-auto mb-4" /><p className="text-sm text-muted-foreground">MemePing Dashboard</p><p className="text-xs text-muted-foreground/60">Track your viral reach</p></div></motion.div>}
+          {activeTab === 'memeping' && <motion.div key="memeping" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full"><MemePingDashboard /></motion.div>}
         </AnimatePresence>
       </main>
 
