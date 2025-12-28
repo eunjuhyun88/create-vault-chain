@@ -6,16 +6,19 @@ import { LiveScanFeed } from '@/components/wallet/LiveScanFeed';
 import { MyVault } from '@/components/wallet/MyVault';
 import { CampaignDashboard } from '@/components/wallet/CampaignDashboard';
 import { MemePingDashboard } from '@/components/wallet/MemePingDashboard';
+import { ExploreDashboard } from '@/components/wallet/ExploreDashboard';
+import { StatsDashboard } from '@/components/wallet/StatsDashboard';
 import { SettingsMenu } from '@/components/wallet/SettingsMenu';
 import { CoinWallet } from '@/components/wallet/CoinWallet';
 import { MemePingModal } from '@/components/wallet/MemePingModal';
 import { Logo } from '@/components/wallet/Logo';
+import { PageTransition } from '@/components/wallet/LoadingSpinner';
 import { useWallet, WalletProvider } from '@/contexts/WalletContext';
 import { PassportAsset } from '@/types/wallet';
-import { Radio, Vault, Send, Settings, Wallet, Gift } from 'lucide-react';
+import { Radio, Vault, Send, Settings, Wallet, Gift, Compass, BarChart3 } from 'lucide-react';
 import { CampaignFooter } from '@/components/wallet/CampaignFooter';
 
-type TabId = 'feed' | 'vault' | 'wallet' | 'memeping' | 'campaigns';
+type TabId = 'feed' | 'vault' | 'wallet' | 'memeping' | 'campaigns' | 'explore' | 'stats';
 
 function WalletApp() {
   const { wallet, connectWallet } = useWallet();
@@ -35,10 +38,10 @@ function WalletApp() {
 
   const tabs = [
     { id: 'feed' as TabId, label: 'Feed', icon: Radio },
+    { id: 'explore' as TabId, label: 'Explore', icon: Compass },
     { id: 'vault' as TabId, label: 'Vault', icon: Vault },
-    { id: 'wallet' as TabId, label: 'Wallet', icon: Wallet },
+    { id: 'stats' as TabId, label: 'Stats', icon: BarChart3 },
     { id: 'campaigns' as TabId, label: 'Campaign', icon: Gift },
-    { id: 'memeping' as TabId, label: 'Ping', icon: Send },
   ];
 
   return (
@@ -49,13 +52,24 @@ function WalletApp() {
       <header className="flex items-center justify-between px-4 py-3 border-b border-border/30 bg-card/50 backdrop-blur-sm relative z-10">
         <Logo size="sm" showText={true} />
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 px-2 py-1 glass-card rounded-full">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setActiveTab('wallet')}
+            className="flex items-center gap-1 px-2 py-1 glass-card rounded-full cursor-pointer hover:bg-primary/10 transition-colors"
+          >
             <Wallet className="w-3 h-3 text-primary" />
             <span className="text-xs text-primary font-mono">{wallet.plartBalance.toLocaleString()}</span>
-          </div>
-          <button onClick={() => setSettingsOpen(true)} className="w-8 h-8 rounded-full glass-card flex items-center justify-center text-muted-foreground hover:text-primary transition-colors">
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.1, rotate: 90 }}
+            whileTap={{ scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 400 }}
+            onClick={() => setSettingsOpen(true)} 
+            className="w-8 h-8 rounded-full glass-card flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+          >
             <Settings className="w-4 h-4" />
-          </button>
+          </motion.button>
         </div>
       </header>
 
@@ -63,32 +77,42 @@ function WalletApp() {
       <main className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           {activeTab === 'feed' && (
-            <motion.div key="feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+            <PageTransition key="feed">
               <LiveScanFeed assets={wallet.scannedAssets} onShareViaMemePing={handleShareViaMemePing} />
-            </motion.div>
+            </PageTransition>
+          )}
+          {activeTab === 'explore' && (
+            <PageTransition key="explore">
+              <ExploreDashboard />
+            </PageTransition>
           )}
           {activeTab === 'vault' && (
-            <motion.div key="vault" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+            <PageTransition key="vault">
               <MyVault />
-            </motion.div>
+            </PageTransition>
+          )}
+          {activeTab === 'stats' && (
+            <PageTransition key="stats">
+              <StatsDashboard />
+            </PageTransition>
           )}
           {activeTab === 'wallet' && (
-            <motion.div key="wallet" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+            <PageTransition key="wallet">
               <CoinWallet />
-            </motion.div>
+            </PageTransition>
           )}
           {activeTab === 'memeping' && (
-            <motion.div key="memeping" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+            <PageTransition key="memeping">
               <MemePingDashboard 
                 onNavigateToCampaigns={() => setActiveTab('campaigns')} 
                 onOpenShareModal={setShareModalAsset}
               />
-            </motion.div>
+            </PageTransition>
           )}
           {activeTab === 'campaigns' && (
-            <motion.div key="campaigns" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+            <PageTransition key="campaigns">
               <CampaignDashboard onBack={() => setActiveTab('memeping')} />
-            </motion.div>
+            </PageTransition>
           )}
         </AnimatePresence>
       </main>
@@ -102,10 +126,28 @@ function WalletApp() {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all ${isActive ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground'}`}>
-              <Icon className={`w-5 h-5 ${isActive ? 'animate-pulse' : ''}`} />
+            <motion.button 
+              key={tab.id} 
+              onClick={() => setActiveTab(tab.id)} 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${isActive ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <motion.div
+                animate={isActive ? { scale: [1, 1.2, 1] } : {}}
+                transition={{ duration: 0.3 }}
+              >
+                <Icon className="w-5 h-5" />
+              </motion.div>
               <span className="text-[10px] font-medium">{tab.label}</span>
-            </button>
+              {isActive && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute bottom-1 w-1 h-1 rounded-full bg-primary"
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
+            </motion.button>
           );
         })}
       </nav>
@@ -127,7 +169,7 @@ function WalletApp() {
 
 const Index = () => (
   <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
-    <div className="extension-container rounded-2xl border border-primary/20 overflow-hidden">
+    <div className="extension-container rounded-2xl border border-primary/20 overflow-hidden shadow-[0_0_60px_hsl(75_100%_55%/0.15)]">
       <WalletProvider><WalletApp /></WalletProvider>
     </div>
   </div>
