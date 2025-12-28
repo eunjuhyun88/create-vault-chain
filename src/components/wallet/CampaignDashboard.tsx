@@ -1,12 +1,17 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Campaign } from '@/types/wallet';
-import { Plus, TrendingUp, Users, Coins, Calendar, ChevronRight, ChevronLeft, Trophy, Target, ArrowLeft } from 'lucide-react';
+import { 
+  Plus, TrendingUp, Users, Coins, Calendar, ChevronRight, 
+  Trophy, Target, ArrowLeft, Zap, Clock, Filter
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { formatDistanceToNow } from 'date-fns';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { CampaignDetailView } from './CampaignDetailView';
+import { differenceInDays } from 'date-fns';
 
 interface CampaignDashboardProps {
   onBack?: () => void;
@@ -31,17 +36,17 @@ const demoCampaigns: Campaign[] = [
 ];
 
 type View = 'list' | 'create' | 'detail';
+type FilterType = 'all' | 'active' | 'pending' | 'completed';
 
 export function CampaignDashboard({ onBack }: CampaignDashboardProps) {
   const [campaigns] = useState(demoCampaigns);
   const [view, setView] = useState<View>('list');
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [filter, setFilter] = useState<FilterType>('all');
   const [newCampaign, setNewCampaign] = useState({ name: '', description: '', budget: '', rewardType: 'proportional' });
   const { toast } = useToast();
 
-  const handleJoinCampaign = (campaign: Campaign) => {
-    toast({ title: 'Joined Campaign!', description: `You're now participating in "${campaign.name}"` });
-  };
+  const filteredCampaigns = campaigns.filter(c => filter === 'all' || c.status === filter);
 
   const handleCreateCampaign = () => {
     if (!newCampaign.name || !newCampaign.budget) {
@@ -53,19 +58,40 @@ export function CampaignDashboard({ onBack }: CampaignDashboardProps) {
     setNewCampaign({ name: '', description: '', budget: '', rewardType: 'proportional' });
   };
 
+  const openCampaignDetail = (campaign: Campaign) => {
+    setSelectedCampaign(campaign);
+    setView('detail');
+  };
+
+  if (view === 'detail' && selectedCampaign) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border/30 bg-card/50">
+          <button onClick={() => setView('list')} className="p-1 hover:bg-primary/10 rounded">
+            <ArrowLeft className="w-4 h-4 text-muted-foreground" />
+          </button>
+          <h2 className="font-display text-sm font-semibold">CAMPAIGN DETAILS</h2>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <CampaignDetailView campaign={selectedCampaign} onBack={() => setView('list')} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 bg-card/50">
         <div className="flex items-center gap-2">
-          {(view !== 'list' || onBack) && (
-            <button onClick={() => view !== 'list' ? setView('list') : onBack?.()} className="p-1 hover:bg-primary/10 rounded">
+          {view !== 'list' && (
+            <button onClick={() => setView('list')} className="p-1 hover:bg-primary/10 rounded">
               <ArrowLeft className="w-4 h-4 text-muted-foreground" />
             </button>
           )}
           <TrendingUp className="w-4 h-4 text-primary" />
           <h2 className="font-display text-sm font-semibold">
-            {view === 'create' ? 'CREATE CAMPAIGN' : view === 'detail' ? 'CAMPAIGN DETAILS' : 'CAMPAIGNS'}
+            {view === 'create' ? 'CREATE CAMPAIGN' : 'CAMPAIGNS'}
           </h2>
         </div>
         {view === 'list' && (
@@ -101,50 +127,116 @@ export function CampaignDashboard({ onBack }: CampaignDashboardProps) {
               </div>
             </div>
 
-            {/* Campaign List */}
-            {campaigns.map((campaign, i) => (
-              <motion.div key={campaign.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }} className="glass-card p-4 space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground">{campaign.name}</h3>
-                    <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{campaign.description}</p>
-                  </div>
-                  <span className={`text-[10px] px-2 py-1 rounded-full flex-shrink-0 ${
-                    campaign.status === 'active' ? 'bg-success/20 text-success' : 
-                    campaign.status === 'pending' ? 'bg-warning/20 text-warning' : 'bg-muted text-muted-foreground'
-                  }`}>{campaign.status.toUpperCase()}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="glass-card p-2">
-                    <Coins className="w-3 h-3 text-primary mx-auto mb-1" />
-                    <p className="text-xs font-semibold text-primary">{campaign.budget.toLocaleString()}</p>
-                    <p className="text-[10px] text-muted-foreground">Budget</p>
-                  </div>
-                  <div className="glass-card p-2">
-                    <Users className="w-3 h-3 text-primary mx-auto mb-1" />
-                    <p className="text-xs font-semibold text-primary">{campaign.participants.toLocaleString()}</p>
-                    <p className="text-[10px] text-muted-foreground">Joined</p>
-                  </div>
-                  <div className="glass-card p-2">
-                    <TrendingUp className="w-3 h-3 text-primary mx-auto mb-1" />
-                    <p className="text-xs font-semibold text-primary">{(campaign.totalPIM / 1000).toFixed(0)}K</p>
-                    <p className="text-[10px] text-muted-foreground">PIM</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1 h-8 text-xs border-primary/30"
-                    onClick={() => { setSelectedCampaign(campaign); setView('detail'); }}>
-                    Details <ChevronRight className="w-3 h-3 ml-1" />
-                  </Button>
-                  {campaign.status === 'active' && (
-                    <Button size="sm" className="flex-1 h-8 text-xs" onClick={() => handleJoinCampaign(campaign)}>
-                      Join Now
-                    </Button>
+            {/* Filter Tabs */}
+            <div className="flex gap-2 mb-4 overflow-x-auto">
+              {(['all', 'active', 'pending', 'completed'] as FilterType[]).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                    filter === f 
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                  {f !== 'all' && (
+                    <span className="ml-1 opacity-70">
+                      ({campaigns.filter(c => c.status === f).length})
+                    </span>
                   )}
-                </div>
-              </motion.div>
-            ))}
+                </button>
+              ))}
+            </div>
+
+            {/* Campaign List */}
+            <AnimatePresence mode="popLayout">
+              {filteredCampaigns.map((campaign, i) => {
+                const daysLeft = differenceInDays(campaign.endDate, new Date());
+                return (
+                  <motion.div 
+                    key={campaign.id} 
+                    layout
+                    initial={{ opacity: 0, y: 10 }} 
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="glass-card overflow-hidden cursor-pointer group"
+                    onClick={() => openCampaignDetail(campaign)}
+                  >
+                    {/* Campaign Header */}
+                    <div className="p-4 pb-3">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                              campaign.status === 'active' ? 'bg-success/20 text-success' : 
+                              campaign.status === 'pending' ? 'bg-warning/20 text-warning' : 'bg-muted text-muted-foreground'
+                            }`}>
+                              {campaign.status === 'active' ? '🔴 LIVE' : campaign.status.toUpperCase()}
+                            </span>
+                            {campaign.status === 'active' && daysLeft <= 3 && daysLeft > 0 && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-warning/20 text-warning flex items-center gap-1">
+                                <Clock className="w-2.5 h-2.5" />
+                                {daysLeft}d left
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                            {campaign.name}
+                          </h3>
+                          <p className="text-[10px] text-muted-foreground mt-1 line-clamp-1">{campaign.description}</p>
+                        </div>
+                        <div className="text-right ml-3">
+                          <p className="text-lg font-display font-bold text-primary">{(campaign.budget / 1000).toFixed(0)}K</p>
+                          <p className="text-[9px] text-muted-foreground">PLART</p>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar for Active */}
+                      {campaign.status === 'active' && (
+                        <div className="mt-2">
+                          <div className="flex items-center justify-between text-[10px] mb-1">
+                            <span className="text-muted-foreground">Campaign Progress</span>
+                            <span className="text-primary">{Math.min(100, Math.round((campaign.totalPIM / 1000000) * 100))}%</span>
+                          </div>
+                          <Progress value={Math.min(100, (campaign.totalPIM / 1000000) * 100)} className="h-1.5" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Stats Footer */}
+                    <div className="grid grid-cols-3 gap-px bg-border/30">
+                      <div className="bg-card/50 p-2 text-center">
+                        <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
+                          <Users className="w-3 h-3" />
+                          <span>{campaign.participants.toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <div className="bg-card/50 p-2 text-center">
+                        <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
+                          <TrendingUp className="w-3 h-3" />
+                          <span>{(campaign.totalPIM / 1000).toFixed(0)}K PIM</span>
+                        </div>
+                      </div>
+                      <div className="bg-card/50 p-2 text-center group-hover:bg-primary/10 transition-colors">
+                        <div className="flex items-center justify-center gap-1 text-[10px] text-primary">
+                          <span>View Details</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+
+            {filteredCampaigns.length === 0 && (
+              <div className="text-center py-8">
+                <Target className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">No {filter} campaigns</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -181,43 +273,6 @@ export function CampaignDashboard({ onBack }: CampaignDashboardProps) {
             <Button className="w-full h-11 font-display tracking-wider mt-4" onClick={handleCreateCampaign}>
               CREATE CAMPAIGN
             </Button>
-          </motion.div>
-        )}
-
-        {view === 'detail' && selectedCampaign && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-            <div className="glass-card p-4">
-              <h3 className="text-lg font-display font-bold text-foreground mb-2">{selectedCampaign.name}</h3>
-              <p className="text-xs text-muted-foreground">{selectedCampaign.description}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="glass-card p-3 text-center">
-                <p className="text-[10px] text-muted-foreground mb-1">Budget</p>
-                <p className="text-xl font-display font-bold text-primary">{selectedCampaign.budget.toLocaleString()}</p>
-                <p className="text-[10px] text-muted-foreground">PLART</p>
-              </div>
-              <div className="glass-card p-3 text-center">
-                <p className="text-[10px] text-muted-foreground mb-1">Reward Type</p>
-                <p className="text-sm font-semibold text-foreground capitalize">{selectedCampaign.rewardType}</p>
-              </div>
-            </div>
-            <div className="glass-card p-4 space-y-2">
-              <p className="text-xs text-muted-foreground">Leaderboard</p>
-              {[1, 2, 3].map(rank => (
-                <div key={rank} className="flex items-center gap-3 p-2 rounded-lg bg-muted/20">
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                    rank === 1 ? 'bg-warning text-warning-foreground' : 'bg-muted text-muted-foreground'
-                  }`}>{rank}</span>
-                  <span className="flex-1 text-xs font-mono text-foreground">0x{Math.random().toString(36).substr(2, 6)}...</span>
-                  <span className="text-xs text-primary font-semibold">{Math.floor(Math.random() * 50000).toLocaleString()} PIM</span>
-                </div>
-              ))}
-            </div>
-            {selectedCampaign.status === 'active' && (
-              <Button className="w-full h-11 font-display tracking-wider" onClick={() => handleJoinCampaign(selectedCampaign)}>
-                JOIN CAMPAIGN
-              </Button>
-            )}
           </motion.div>
         )}
       </div>
