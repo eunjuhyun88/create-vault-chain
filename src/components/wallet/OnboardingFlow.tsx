@@ -3,14 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Logo } from './Logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Wallet, Key, Shield, Check, ArrowRight, Lock, X } from 'lucide-react';
+import { Wallet, Key, Shield, Check, ArrowRight, Lock, X, Zap, Sparkles, Camera, Gift } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
 }
 
-type Step = 'welcome' | 'create-wallet' | 'seed-phrase' | 'confirm-phrase' | 'import-phrase' | 'set-pin' | 'complete';
+type Step = 'welcome' | 'features' | 'create-wallet' | 'seed-phrase' | 'confirm-phrase' | 'import-phrase' | 'set-pin' | 'complete';
 
 // Extended BIP39-like word list (subset for demo - production should use full 2048 words)
 const BIP39_WORDS = [
@@ -68,9 +68,57 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return shuffled;
 };
 
+// Feature highlights for onboarding
+const features = [
+  {
+    icon: Camera,
+    title: 'Capture AI Sessions',
+    description: 'Scan and verify your generative AI creations instantly'
+  },
+  {
+    icon: Sparkles,
+    title: 'Mint as NFT',
+    description: 'Turn your AI artwork into unique digital collectibles'
+  },
+  {
+    icon: Gift,
+    title: 'Earn Rewards',
+    description: 'Get PIM tokens for participating in campaigns'
+  }
+];
+
+// Progress indicator component
+const StepIndicator = ({ currentStep, isQuickStart }: { currentStep: Step; isQuickStart: boolean }) => {
+  const steps = isQuickStart 
+    ? ['welcome', 'features', 'set-pin', 'complete']
+    : ['welcome', 'features', 'create-wallet', 'seed-phrase', 'confirm-phrase', 'set-pin', 'complete'];
+  
+  const currentIndex = steps.indexOf(currentStep);
+  const progress = currentIndex >= 0 ? ((currentIndex + 1) / steps.length) * 100 : 0;
+  
+  if (currentStep === 'welcome' || currentStep === 'import-phrase') return null;
+  
+  return (
+    <div className="absolute top-4 left-6 right-6 z-10">
+      <div className="h-1 bg-muted rounded-full overflow-hidden">
+        <motion.div 
+          className="h-full bg-primary"
+          initial={{ width: 0 }}
+          animate={{ width: `${progress}%` }}
+          transition={{ duration: 0.3 }}
+        />
+      </div>
+      <p className="text-[10px] text-muted-foreground mt-2 text-center">
+        Step {currentIndex + 1} of {steps.length}
+      </p>
+    </div>
+  );
+};
+
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [isImporting, setIsImporting] = useState(false);
+  const [isQuickStart, setIsQuickStart] = useState(false);
   const [seedPhrase] = useState<string[]>(generateSeedPhrase);
   const [shuffledWords, setShuffledWords] = useState<string[]>([]);
   const [selectedWords, setSelectedWords] = useState<string[]>([]);
@@ -79,6 +127,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [copied, setCopied] = useState(false);
+  const [featureIndex, setFeatureIndex] = useState(0);
   const { toast } = useToast();
 
   // For confirm-phrase: verification indices (words 3, 6, 11)
@@ -106,10 +155,20 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setAvailableImportWords(shuffleArray(allBipWords));
   }, []);
 
+  // Auto-advance features carousel
+  useEffect(() => {
+    if (currentStep === 'features') {
+      const interval = setInterval(() => {
+        setFeatureIndex((prev) => (prev + 1) % features.length);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [currentStep]);
+
   const handleCopySeedPhrase = () => {
     navigator.clipboard.writeText(seedPhrase.join(' '));
     setCopied(true);
-    toast({ title: 'Copied to clipboard', description: 'Store your seed phrase securely offline.' });
+    toast({ title: 'Copied!', description: 'Keep your seed phrase safe and never share it.' });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -128,7 +187,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     if (isValid) {
       setCurrentStep('set-pin');
     } else {
-      toast({ title: 'Verification failed', description: 'Please select the correct words in order.', variant: 'destructive' });
+      toast({ title: 'Oops!', description: 'That doesn\'t match. Try again!', variant: 'destructive' });
       setSelectedWords([]);
     }
   };
@@ -150,20 +209,32 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     if (importedWords.length === 12) {
       setCurrentStep('set-pin');
     } else {
-      toast({ title: 'Incomplete phrase', description: 'Please select all 12 words.', variant: 'destructive' });
+      toast({ title: 'Almost there!', description: 'Please select all 12 words.', variant: 'destructive' });
     }
   };
 
   const handleSetPin = () => {
     if (pin.length < 4) {
-      toast({ title: 'PIN too short', description: 'PIN must be at least 4 digits.', variant: 'destructive' });
+      toast({ title: 'Too short!', description: 'PIN needs at least 4 digits.', variant: 'destructive' });
       return;
     }
     if (pin !== confirmPin) {
-      toast({ title: 'PIN mismatch', description: 'PINs do not match.', variant: 'destructive' });
+      toast({ title: 'PINs don\'t match', description: 'Make sure both PINs are the same.', variant: 'destructive' });
       return;
     }
     setCurrentStep('complete');
+  };
+
+  const handleQuickStart = () => {
+    setIsQuickStart(true);
+    setIsImporting(false);
+    setCurrentStep('features');
+  };
+
+  const handleFullSetup = () => {
+    setIsQuickStart(false);
+    setIsImporting(false);
+    setCurrentStep('features');
   };
 
   useEffect(() => {
@@ -180,33 +251,128 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           <motion.div key="welcome" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
             className="flex flex-col items-center justify-center h-full px-6 text-center">
             <div className="mb-8"><Logo size="xl" showText={false} /></div>
-            <h1 className="font-display text-2xl font-bold text-primary neon-text mb-2">PLAYARTS WALLET</h1>
+            <h1 className="font-display text-2xl font-bold text-primary neon-text mb-2">PLAYARTS</h1>
+            <p className="text-lg text-foreground font-medium mb-1">Passport (Wallet)</p>
             <p className="text-muted-foreground text-sm mb-8 max-w-xs">
-              Your AI Creation Passport. Capture, verify, and materialize your generative AI sessions.
+              Your creative identity for the AI generation. Capture, collect, and earn.
             </p>
+            
             <div className="space-y-3 w-full max-w-xs">
-              <Button className="w-full h-12 text-sm font-display tracking-wider" onClick={() => { setIsImporting(false); setCurrentStep('create-wallet'); }}>
-                <Wallet className="w-4 h-4 mr-2" />CREATE NEW PASSPORT
+              {/* Quick Start - Primary */}
+              <Button 
+                className="w-full h-14 text-sm font-display tracking-wider relative overflow-hidden group" 
+                onClick={handleQuickStart}
+              >
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary-foreground/10 to-primary/0"
+                  animate={{ x: ['-100%', '100%'] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                />
+                <Zap className="w-5 h-5 mr-2" />
+                <div className="flex flex-col items-start">
+                  <span>QUICK START</span>
+                  <span className="text-[10px] opacity-70 font-normal">Get started in seconds</span>
+                </div>
               </Button>
-              <Button variant="outline" className="w-full h-12 text-sm font-display tracking-wider border-primary/40"
-                onClick={() => { setIsImporting(true); setCurrentStep('import-phrase'); }}>
-                <Key className="w-4 h-4 mr-2" />IMPORT EXISTING
+              
+              {/* Full Setup - Secondary */}
+              <Button 
+                variant="outline" 
+                className="w-full h-12 text-sm font-display tracking-wider border-primary/40"
+                onClick={handleFullSetup}
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                SECURE SETUP
+              </Button>
+              
+              {/* Import - Tertiary */}
+              <Button 
+                variant="ghost" 
+                className="w-full h-10 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => { setIsImporting(true); setCurrentStep('import-phrase'); }}
+              >
+                <Key className="w-3 h-3 mr-2" />
+                I already have a passport
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-8 max-w-xs">By continuing, you agree to our Terms of Service and Privacy Policy</p>
+            
+            <p className="text-[10px] text-muted-foreground mt-8 max-w-xs">
+              By continuing, you agree to our Terms of Service and Privacy Policy
+            </p>
+          </motion.div>
+        );
+
+      case 'features':
+        return (
+          <motion.div key="features" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}
+            className="flex flex-col h-full px-6 pt-16 pb-8">
+            <StepIndicator currentStep={currentStep} isQuickStart={isQuickStart} />
+            
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={featureIndex}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="text-center"
+                >
+                  <motion.div 
+                    className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto mb-6"
+                    animate={{ scale: [1, 1.05, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    {(() => {
+                      const Icon = features[featureIndex].icon;
+                      return <Icon className="w-10 h-10 text-primary" />;
+                    })()}
+                  </motion.div>
+                  <h2 className="font-display text-xl font-bold text-foreground mb-2">
+                    {features[featureIndex].title}
+                  </h2>
+                  <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                    {features[featureIndex].description}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
+              
+              {/* Feature dots */}
+              <div className="flex gap-2 mt-8">
+                {features.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setFeatureIndex(i)}
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      i === featureIndex ? 'bg-primary w-6' : 'bg-muted'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            <Button 
+              className="w-full h-12 text-sm font-display tracking-wider" 
+              onClick={() => setCurrentStep(isQuickStart ? 'set-pin' : 'create-wallet')}
+            >
+              LET'S GO <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
           </motion.div>
         );
 
       case 'create-wallet':
         return (
           <motion.div key="create-wallet" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}
-            className="flex flex-col h-full px-6 py-8">
-            <div className="text-center mb-6">
+            className="flex flex-col h-full px-6 pt-16 pb-8">
+            <StepIndicator currentStep={currentStep} isQuickStart={isQuickStart} />
+            
+            <div className="text-center mb-6 mt-4">
               <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto mb-4">
                 <Shield className="w-8 h-8 text-primary" />
               </div>
-              <h2 className="font-display text-lg font-bold text-primary mb-2">SECURE BACKUP</h2>
-              <p className="text-xs text-muted-foreground">Your seed phrase is the only way to recover your wallet.</p>
+              <h2 className="font-display text-lg font-bold text-primary mb-2">BACKUP TIME</h2>
+              <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                We'll create a recovery phrase. This is the only way to restore your passport if you lose access.
+              </p>
             </div>
             <div className="flex-1 flex items-center justify-center">
               <div className="relative">
@@ -218,7 +384,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </div>
             </div>
             <Button className="w-full h-12 text-sm font-display tracking-wider" onClick={() => setCurrentStep('seed-phrase')}>
-              GENERATE SEED PHRASE<ArrowRight className="w-4 h-4 ml-2" />
+              GENERATE PHRASE <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </motion.div>
         );
@@ -226,10 +392,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       case 'seed-phrase':
         return (
           <motion.div key="seed-phrase" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}
-            className="flex flex-col h-full px-6 py-6">
-            <div className="text-center mb-4">
-              <h2 className="font-display text-lg font-bold text-primary mb-1">YOUR SEED PHRASE</h2>
-              <p className="text-[10px] text-muted-foreground">Write these words down in order and store them securely offline.</p>
+            className="flex flex-col h-full px-6 pt-16 pb-6">
+            <StepIndicator currentStep={currentStep} isQuickStart={isQuickStart} />
+            
+            <div className="text-center mb-4 mt-4">
+              <h2 className="font-display text-lg font-bold text-primary mb-1">YOUR SECRET PHRASE</h2>
+              <p className="text-[10px] text-muted-foreground">Write these down and keep them somewhere safe!</p>
             </div>
             <div className="flex-1 overflow-auto">
               <div className="grid grid-cols-3 gap-2 mb-4">
@@ -245,11 +413,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 {copied ? <Check className="w-4 h-4 mr-2" /> : null}{copied ? 'Copied!' : 'Copy to Clipboard'}
               </Button>
               <div className="glass-card p-3 border-warning/30 bg-warning/5">
-                <p className="text-[10px] text-warning">⚠️ Never share your seed phrase. Anyone with it can access your wallet.</p>
+                <p className="text-[10px] text-warning">⚠️ Never share this phrase! Anyone with it can access your passport.</p>
               </div>
             </div>
             <Button className="w-full h-12 text-sm font-display tracking-wider mt-4" onClick={() => setCurrentStep('confirm-phrase')}>
-              I'VE SAVED IT<ArrowRight className="w-4 h-4 ml-2" />
+              I'VE SAVED IT <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </motion.div>
         );
@@ -257,11 +425,13 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       case 'confirm-phrase':
         return (
           <motion.div key="confirm-phrase" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}
-            className="flex flex-col h-full px-6 py-6">
-            <div className="text-center mb-4">
-              <h2 className="font-display text-lg font-bold text-primary mb-1">VERIFY YOUR BACKUP</h2>
+            className="flex flex-col h-full px-6 pt-16 pb-6">
+            <StepIndicator currentStep={currentStep} isQuickStart={isQuickStart} />
+            
+            <div className="text-center mb-4 mt-4">
+              <h2 className="font-display text-lg font-bold text-primary mb-1">QUICK CHECK</h2>
               <p className="text-xs text-muted-foreground">
-                Tap words #{verificationIndices[0] + 1}, #{verificationIndices[1] + 1}, #{verificationIndices[2] + 1} in order.
+                Tap words #{verificationIndices[0] + 1}, #{verificationIndices[1] + 1}, #{verificationIndices[2] + 1} to make sure you've got it!
               </p>
             </div>
 
@@ -297,7 +467,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             </div>
 
             <Button className="w-full h-12 text-sm font-display tracking-wider mt-4" onClick={handleConfirmPhrase} disabled={selectedWords.length < 3}>
-              VERIFY<ArrowRight className="w-4 h-4 ml-2" />
+              VERIFY <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </motion.div>
         );
@@ -307,8 +477,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           <motion.div key="import-phrase" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}
             className="flex flex-col h-full px-6 py-6">
             <div className="text-center mb-4">
-              <h2 className="font-display text-lg font-bold text-primary mb-1">IMPORT WALLET</h2>
-              <p className="text-xs text-muted-foreground">Tap your 12-word seed phrase in order.</p>
+              <h2 className="font-display text-lg font-bold text-primary mb-1">WELCOME BACK</h2>
+              <p className="text-xs text-muted-foreground">Tap your 12 secret words in order.</p>
             </div>
 
             {/* Selected Words Grid */}
@@ -351,28 +521,31 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       case 'set-pin':
         return (
           <motion.div key="set-pin" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}
-            className="flex flex-col h-full px-6 py-6">
-            <div className="text-center mb-6">
+            className="flex flex-col h-full px-6 pt-16 pb-6">
+            <StepIndicator currentStep={currentStep} isQuickStart={isQuickStart} />
+            
+            <div className="text-center mb-6 mt-4">
               <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto mb-4">
                 <Lock className="w-8 h-8 text-primary" />
               </div>
               <h2 className="font-display text-lg font-bold text-primary mb-1">SET YOUR PIN</h2>
-              <p className="text-xs text-muted-foreground">Create a PIN to quickly unlock your wallet.</p>
+              <p className="text-xs text-muted-foreground">Create a PIN for quick access to your passport.</p>
             </div>
             <div className="flex-1 space-y-4">
               <div className="space-y-2">
                 <label className="text-xs text-muted-foreground">Enter PIN</label>
                 <Input type="password" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="bg-input border-primary/30 text-foreground text-center text-2xl tracking-[1em]" maxLength={6} />
+                  className="bg-input border-primary/30 text-foreground text-center text-2xl tracking-[1em]" maxLength={6} placeholder="••••" />
               </div>
               <div className="space-y-2">
                 <label className="text-xs text-muted-foreground">Confirm PIN</label>
                 <Input type="password" value={confirmPin} onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="bg-input border-primary/30 text-foreground text-center text-2xl tracking-[1em]" maxLength={6} />
+                  className="bg-input border-primary/30 text-foreground text-center text-2xl tracking-[1em]" maxLength={6} placeholder="••••" />
               </div>
             </div>
             <Button className="w-full h-12 text-sm font-display tracking-wider" onClick={handleSetPin}>
-              {isImporting ? 'IMPORT WALLET' : 'CREATE WALLET'}<ArrowRight className="w-4 h-4 ml-2" />
+              {isQuickStart ? 'CREATE PASSPORT' : isImporting ? 'IMPORT PASSPORT' : 'CREATE PASSPORT'}
+              <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </motion.div>
         );
@@ -386,11 +559,13 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <Check className="w-12 h-12 text-success" />
             </motion.div>
             <h2 className="font-display text-xl font-bold text-primary neon-text mb-2">
-              {isImporting ? 'WALLET IMPORTED' : 'WALLET CREATED'}
+              YOU'RE ALL SET!
             </h2>
-            <p className="text-sm text-muted-foreground mb-8">Your PlayArts Passport is ready. Start capturing your AI creations.</p>
+            <p className="text-sm text-muted-foreground mb-8 max-w-xs">
+              Your PlayArts Passport is ready. Time to start creating!
+            </p>
             <motion.div className="text-xs text-primary/60" animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
-              Initializing wallet...
+              Setting things up...
             </motion.div>
           </motion.div>
         );
