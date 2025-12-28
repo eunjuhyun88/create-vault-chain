@@ -530,23 +530,41 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </div>
               <h2 className="font-display text-lg font-bold text-primary mb-1">SET YOUR PIN</h2>
               <p className="text-xs text-muted-foreground">Create a PIN for quick access to your passport.</p>
+              <p className="text-[10px] text-muted-foreground/70 mt-1">You can set this up later in settings.</p>
             </div>
             <div className="flex-1 space-y-4">
               <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Enter PIN</label>
+                <label className="text-xs text-muted-foreground">Enter PIN (optional)</label>
                 <Input type="password" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   className="bg-input border-primary/30 text-foreground text-center text-2xl tracking-[1em]" maxLength={6} placeholder="••••" />
               </div>
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Confirm PIN</label>
-                <Input type="password" value={confirmPin} onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="bg-input border-primary/30 text-foreground text-center text-2xl tracking-[1em]" maxLength={6} placeholder="••••" />
-              </div>
+              {pin.length > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }} 
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="space-y-2"
+                >
+                  <label className="text-xs text-muted-foreground">Confirm PIN</label>
+                  <Input type="password" value={confirmPin} onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="bg-input border-primary/30 text-foreground text-center text-2xl tracking-[1em]" maxLength={6} placeholder="••••" />
+                </motion.div>
+              )}
             </div>
-            <Button className="w-full h-12 text-sm font-display tracking-wider" onClick={handleSetPin}>
-              {isQuickStart ? 'CREATE PASSPORT' : isImporting ? 'IMPORT PASSPORT' : 'CREATE PASSPORT'}
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+            <div className="space-y-2">
+              <Button className="w-full h-12 text-sm font-display tracking-wider" onClick={handleSetPin} disabled={pin.length > 0 && (pin.length < 4 || pin !== confirmPin)}>
+                {isQuickStart ? 'CREATE PASSPORT' : isImporting ? 'IMPORT PASSPORT' : 'CREATE PASSPORT'}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+              {pin.length === 0 && (
+                <Button 
+                  variant="ghost" 
+                  className="w-full h-10 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setCurrentStep('complete')}
+                >
+                  Skip for now
+                </Button>
+              )}
+            </div>
           </motion.div>
         );
 
