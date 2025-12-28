@@ -12,7 +12,7 @@ import { MemePingModal } from '@/components/wallet/MemePingModal';
 import { Logo } from '@/components/wallet/Logo';
 import { useWallet, WalletProvider } from '@/contexts/WalletContext';
 import { PassportAsset } from '@/types/wallet';
-import { Radio, Vault, TrendingUp, Send, Settings, Wallet } from 'lucide-react';
+import { Radio, Vault, TrendingUp, Send, Settings, Wallet, Gift } from 'lucide-react';
 import { CampaignFooter } from '@/components/wallet/CampaignFooter';
 
 type TabId = 'feed' | 'vault' | 'wallet' | 'memeping' | 'campaigns';
@@ -38,6 +38,7 @@ function WalletApp() {
     { id: 'vault' as TabId, label: 'Vault', icon: Vault },
     { id: 'wallet' as TabId, label: 'Wallet', icon: Wallet },
     { id: 'memeping' as TabId, label: 'Ping', icon: Send },
+    { id: 'campaigns' as TabId, label: 'Campaign', icon: Gift },
   ];
 
   return (
