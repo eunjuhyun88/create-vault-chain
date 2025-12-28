@@ -9,7 +9,7 @@ interface WalletContextType {
   connectWallet: () => void;
   disconnectWallet: () => void;
   lockWallet: () => void;
-  unlockWallet: (pin: string) => boolean;
+  unlockWallet: (pin: string) => Promise<boolean>;
   addScannedAsset: (asset: ScannedAsset) => void;
   updateScannedAsset: (assetId: string, updates: Partial<ScannedAsset>) => void;
   mintAsset: (assetId: string) => Promise<PassportAsset>;
@@ -48,15 +48,34 @@ const defaultSession: SessionStatus = {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
+// Secure PIN storage using session-based hashing
+const hashPin = async (pin: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(pin + 'playarts_salt_v1');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [wallet, setWallet] = useState<WalletState>(defaultWallet);
   const [session, setSession] = useState<SessionStatus>(defaultSession);
-  const [storedPin] = useState('1234');
+  // Store hashed PIN in sessionStorage for session-based security
+  const [pinHash, setPinHash] = useState<string | null>(() => {
+    return sessionStorage.getItem('wallet_pin_hash');
+  });
+
+  const setPin = async (pin: string): Promise<void> => {
+    const hash = await hashPin(pin);
+    setPinHash(hash);
+    sessionStorage.setItem('wallet_pin_hash', hash);
+  };
 
   const connectWallet = () => {
-    const mockAddress = '0x' + Array.from({ length: 40 }, () => 
-      Math.floor(Math.random() * 16).toString(16)
-    ).join('');
+    // Use cryptographically secure random for wallet address generation
+    const array = new Uint8Array(20);
+    crypto.getRandomValues(array);
+    const mockAddress = '0x' + Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
     
     setWallet(prev => ({
       ...prev,
@@ -73,14 +92,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const disconnectWallet = () => {
     setWallet(defaultWallet);
     setSession(defaultSession);
+    sessionStorage.removeItem('wallet_pin_hash');
+    setPinHash(null);
   };
 
   const lockWallet = () => {
     setWallet(prev => ({ ...prev, isLocked: true }));
   };
 
-  const unlockWallet = (pin: string): boolean => {
-    if (pin === storedPin) {
+  const unlockWallet = async (pin: string): Promise<boolean> => {
+    if (!pinHash) {
+      // No PIN set yet, set it now (first time unlock after wallet creation)
+      await setPin(pin);
+      setWallet(prev => ({ ...prev, isLocked: false }));
+      return true;
+    }
+    
+    const inputHash = await hashPin(pin);
+    if (inputHash === pinHash) {
       setWallet(prev => ({ ...prev, isLocked: false }));
       return true;
     }

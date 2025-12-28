@@ -43,11 +43,27 @@ export function CoinWallet({ onClose }: CoinWalletProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Ethereum address validation regex (0x + 40 hex characters)
+  const isValidEthAddress = (address: string): boolean => {
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
+  };
+
   const handleSend = async () => {
     if (!sendAddress || !sendAmount) {
       toast({ title: 'Fill all fields', variant: 'destructive' });
       return;
     }
+    
+    // Validate Ethereum address format
+    if (!isValidEthAddress(sendAddress)) {
+      toast({ 
+        title: 'Invalid address', 
+        description: 'Please enter a valid Ethereum address (0x followed by 40 hex characters)',
+        variant: 'destructive' 
+      });
+      return;
+    }
+    
     const amount = parseFloat(sendAmount);
     if (isNaN(amount) || amount <= 0) {
       toast({ title: 'Invalid amount', variant: 'destructive' });

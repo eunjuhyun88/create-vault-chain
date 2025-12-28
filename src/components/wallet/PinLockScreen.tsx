@@ -28,16 +28,19 @@ export function PinLockScreen({ onUnlock }: PinLockScreenProps) {
 
   useEffect(() => {
     if (pin.length === 4) {
-      const success = unlockWallet(pin);
-      if (success) {
-        onUnlock();
-      } else {
-        setError(true);
-        setAttempts(prev => prev + 1);
-        setTimeout(() => {
-          setPin('');
-        }, 500);
-      }
+      const attemptUnlock = async () => {
+        const success = await unlockWallet(pin);
+        if (success) {
+          onUnlock();
+        } else {
+          setError(true);
+          setAttempts(prev => prev + 1);
+          setTimeout(() => {
+            setPin('');
+          }, 500);
+        }
+      };
+      attemptUnlock();
     }
   }, [pin, unlockWallet, onUnlock]);
 
