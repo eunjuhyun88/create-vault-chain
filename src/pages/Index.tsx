@@ -13,6 +13,7 @@ import { Logo } from '@/components/wallet/Logo';
 import { useWallet, WalletProvider } from '@/contexts/WalletContext';
 import { PassportAsset } from '@/types/wallet';
 import { Radio, Vault, TrendingUp, Send, Settings, Wallet } from 'lucide-react';
+import { CampaignFooter } from '@/components/wallet/CampaignFooter';
 
 type TabId = 'feed' | 'vault' | 'wallet' | 'memeping' | 'campaigns';
 
@@ -90,6 +91,9 @@ function WalletApp() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Campaign Footer Banner */}
+      <CampaignFooter onClick={() => setActiveTab('campaigns')} />
 
       {/* Bottom Navigation */}
       <nav className="flex items-center justify-around px-2 py-2 border-t border-border/30 bg-card/80 backdrop-blur-sm">
