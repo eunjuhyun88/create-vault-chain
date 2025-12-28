@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gift, Zap, ChevronRight, Sparkles, Target, Users, Trophy } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
+import { Gift, Zap, ChevronRight, Users, Trophy, Target } from 'lucide-react';
 
 interface Campaign {
   id: string;
@@ -9,8 +8,6 @@ interface Campaign {
   reward: string;
   icon: React.ReactNode;
   progress: number;
-  target: number;
-  current: number;
   status: 'live' | 'upcoming' | 'ending';
 }
 
@@ -23,40 +20,32 @@ const campaigns: Campaign[] = [
     id: 'scan-earn',
     title: 'SCAN & EARN',
     reward: '+50 PLART',
-    icon: <Gift className="w-5 h-5 text-primary" />,
+    icon: <Gift className="w-4 h-4" />,
     progress: 65,
-    target: 100,
-    current: 65,
     status: 'live',
   },
   {
     id: 'referral',
-    title: 'REFERRAL BONUS',
+    title: 'REFERRAL',
     reward: '+200 PLART',
-    icon: <Users className="w-5 h-5 text-primary" />,
+    icon: <Users className="w-4 h-4" />,
     progress: 30,
-    target: 10,
-    current: 3,
     status: 'live',
   },
   {
-    id: 'weekly-challenge',
-    title: 'WEEKLY CHALLENGE',
+    id: 'weekly',
+    title: 'WEEKLY',
     reward: '+500 PLART',
-    icon: <Trophy className="w-5 h-5 text-primary" />,
+    icon: <Trophy className="w-4 h-4" />,
     progress: 80,
-    target: 50,
-    current: 40,
     status: 'ending',
   },
   {
     id: 'first-mint',
     title: 'FIRST MINT',
     reward: '+100 PLART',
-    icon: <Target className="w-5 h-5 text-primary" />,
+    icon: <Target className="w-4 h-4" />,
     progress: 0,
-    target: 1,
-    current: 0,
     status: 'upcoming',
   },
 ];
@@ -73,113 +62,64 @@ export function CampaignFooter({ onClick }: CampaignFooterProps) {
 
   const currentCampaign = campaigns[currentIndex];
 
-  const getStatusBadge = (status: Campaign['status']) => {
-    switch (status) {
-      case 'live':
-        return (
-          <span className="px-1.5 py-0.5 bg-success/20 text-success text-[10px] font-medium rounded-full animate-pulse">
-            LIVE
-          </span>
-        );
-      case 'ending':
-        return (
-          <span className="px-1.5 py-0.5 bg-warning/20 text-warning text-[10px] font-medium rounded-full">
-            ENDING SOON
-          </span>
-        );
-      case 'upcoming':
-        return (
-          <span className="px-1.5 py-0.5 bg-muted text-muted-foreground text-[10px] font-medium rounded-full">
-            SOON
-          </span>
-        );
-    }
-  };
-
   return (
-    <motion.div
-      initial={{ y: 20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      className="px-3 py-2 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 border-t border-primary/30"
+    <button
+      onClick={onClick}
+      className="w-full px-3 py-1.5 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-t border-primary/20 flex items-center justify-between group"
     >
-      <button
-        onClick={onClick}
-        className="w-full group"
-      >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentCampaign.id}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-col gap-2"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center">
-                    {currentCampaign.icon}
-                  </div>
-                  <motion.div
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute -top-1 -right-1 w-4 h-4 bg-warning rounded-full flex items-center justify-center"
-                  >
-                    <Sparkles className="w-2.5 h-2.5 text-warning-foreground" />
-                  </motion.div>
-                </div>
-                
-                <div className="text-left">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-primary font-['Orbitron']">
-                      {currentCampaign.title}
-                    </span>
-                    {getStatusBadge(currentCampaign.status)}
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <Zap className="w-3 h-3 text-warning" />
-                    <span className="text-[11px] text-muted-foreground">
-                      {currentCampaign.reward} per completion
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-            </div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentCampaign.id}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -5 }}
+          transition={{ duration: 0.2 }}
+          className="flex items-center gap-2"
+        >
+          <div className="w-6 h-6 rounded bg-primary/20 flex items-center justify-center text-primary">
+            {currentCampaign.icon}
+          </div>
+          
+          <span className="text-[10px] font-semibold text-primary font-['Orbitron']">
+            {currentCampaign.title}
+          </span>
+          
+          {currentCampaign.status === 'live' && (
+            <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
+          )}
+          {currentCampaign.status === 'ending' && (
+            <span className="w-1.5 h-1.5 bg-warning rounded-full animate-pulse" />
+          )}
+          
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Zap className="w-3 h-3 text-warning" />
+            <span>{currentCampaign.reward}</span>
+          </div>
+          
+          {/* Mini progress */}
+          <div className="w-12 h-1 bg-muted/30 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-primary/60 rounded-full"
+              style={{ width: `${currentCampaign.progress}%` }}
+            />
+          </div>
+        </motion.div>
+      </AnimatePresence>
 
-            {/* Progress Bar */}
-            <div className="flex items-center gap-2">
-              <Progress 
-                value={currentCampaign.progress} 
-                className="h-1.5 flex-1 bg-muted/50"
-              />
-              <span className="text-[10px] text-muted-foreground font-mono min-w-[60px] text-right">
-                {currentCampaign.current}/{currentCampaign.target}
-              </span>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Carousel Indicators */}
-        <div className="flex items-center justify-center gap-1.5 mt-2">
+      <div className="flex items-center gap-2">
+        {/* Dots */}
+        <div className="flex gap-1">
           {campaigns.map((_, idx) => (
-            <button
+            <span
               key={idx}
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentIndex(idx);
-              }}
-              className={`w-1.5 h-1.5 rounded-full transition-all ${
-                idx === currentIndex 
-                  ? 'bg-primary w-4' 
-                  : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
+              className={`w-1 h-1 rounded-full transition-all ${
+                idx === currentIndex ? 'bg-primary' : 'bg-muted-foreground/30'
               }`}
             />
           ))}
         </div>
-      </button>
-    </motion.div>
+        <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+      </div>
+    </button>
   );
 }
