@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScannedAsset, AIService, PassportAsset } from '@/types/wallet';
 import { AssetCard } from './AssetCard';
 import { ScanOverlay } from './ScanOverlay';
 import { useWallet } from '@/contexts/WalletContext';
-import { Filter, Grid3X3, List, Sparkles, RefreshCw, Radio } from 'lucide-react';
+import { Filter, Grid3X3, List, Sparkles, RefreshCw, Radio, Scan, Zap, Activity, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MintingModal } from './MintingModal';
 import { useToast } from '@/hooks/use-toast';
@@ -18,10 +18,6 @@ import {
 interface LiveScanFeedProps {
   assets: ScannedAsset[];
   onShareViaMemePing?: (passport: PassportAsset) => void;
-}
-
-interface LiveScanFeedProps {
-  assets: ScannedAsset[];
 }
 
 const demoAssets: ScannedAsset[] = [
@@ -63,13 +59,25 @@ const demoAssets: ScannedAsset[] = [
   },
 ];
 
-export function LiveScanFeed({ assets }: LiveScanFeedProps) {
+export function LiveScanFeed({ assets, onShareViaMemePing }: LiveScanFeedProps) {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [filter, setFilter] = useState<AIService | 'all'>('all');
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [mintingAsset, setMintingAsset] = useState<ScannedAsset | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
   const { session, addScannedAsset, setWallet } = useWallet();
   const { toast } = useToast();
+  
+  // Scanner animation effect
+  useEffect(() => {
+    if (isScanning) {
+      const interval = setInterval(() => {
+        setScanProgress(prev => (prev >= 100 ? 0 : prev + 2));
+      }, 50);
+      return () => clearInterval(interval);
+    }
+  }, [isScanning]);
 
   // Use demo assets if none provided
   const displayAssets = assets.length > 0 ? assets : demoAssets;
@@ -106,6 +114,7 @@ export function LiveScanFeed({ assets }: LiveScanFeedProps) {
   };
 
   const simulateScan = () => {
+    setIsScanning(true);
     const services: AIService[] = ['midjourney', 'dalle', 'stable', 'runway', 'sora', 'firefly', 'veo', 'chatgpt'];
     const prompts = [
       'A serene Japanese garden with cherry blossoms',
@@ -123,8 +132,12 @@ export function LiveScanFeed({ assets }: LiveScanFeedProps) {
       timestamp: new Date(),
     };
     addScannedAsset(newAsset);
+    toast({ 
+      title: '🔍 Session Detected', 
+      description: `Scanning ${newAsset.sourceAI.toUpperCase()} session...` 
+    });
 
-    // Convert to captured after 2 seconds
+    // Convert to captured after scanning animation
     setTimeout(() => {
       const images = [
         'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&h=300&fit=crop',
@@ -136,45 +149,124 @@ export function LiveScanFeed({ assets }: LiveScanFeedProps) {
         status: 'captured',
         previewUrl: images[Math.floor(Math.random() * images.length)],
       });
-      toast({ title: 'Asset Captured', description: 'New AI creation detected and saved.' });
-    }, 2500);
+      setIsScanning(false);
+      setScanProgress(0);
+      toast({ 
+        title: '✓ Asset Captured', 
+        description: 'AI creation materialized to your feed.' 
+      });
+    }, 3000);
   };
 
   return (
     <div className="flex flex-col h-full relative">
       <ScanOverlay />
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 bg-card/50 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <Radio className="w-4 h-4 text-primary animate-pulse" />
-          <h2 className="font-display text-sm font-semibold text-foreground">LIVE FEED</h2>
-          <span className="text-xs text-muted-foreground">({filteredAssets.length})</span>
+      {/* Scanner Header */}
+      <div className="relative border-b border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden">
+        {/* Scanning Progress Bar */}
+        {isScanning && (
+          <motion.div 
+            className="absolute top-0 left-0 h-1 bg-gradient-to-r from-primary via-accent to-primary"
+            initial={{ width: 0 }}
+            animate={{ width: `${scanProgress}%` }}
+            transition={{ duration: 0.05 }}
+          />
+        )}
+        
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className={`w-10 h-10 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center ${isScanning ? 'animate-pulse-glow' : ''}`}>
+                <Scan className={`w-5 h-5 text-primary ${isScanning ? 'animate-spin-slow' : ''}`} />
+              </div>
+              {isScanning && (
+                <motion.div 
+                  className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full"
+                  animate={{ scale: [1, 1.3, 1], opacity: [1, 0.5, 1] }}
+                  transition={{ duration: 0.8, repeat: Infinity }}
+                />
+              )}
+            </div>
+            <div>
+              <h2 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
+                SESSION SCANNER
+                {isScanning && (
+                  <motion.span 
+                    className="text-[10px] text-primary bg-primary/20 px-2 py-0.5 rounded-full"
+                    animate={{ opacity: [1, 0.5, 1] }}
+                    transition={{ duration: 0.5, repeat: Infinity }}
+                  >
+                    ACTIVE
+                  </motion.span>
+                )}
+              </h2>
+              <p className="text-[10px] text-muted-foreground flex items-center gap-2">
+                <Activity className="w-3 h-3" />
+                {filteredAssets.length} assets detected
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button 
+              variant={isScanning ? "default" : "outline"} 
+              size="sm" 
+              className={`h-8 text-xs gap-1 ${isScanning ? '' : 'border-primary/40'}`}
+              onClick={simulateScan}
+              disabled={isScanning}
+            >
+              {isScanning ? (
+                <>
+                  <Eye className="w-3 h-3 animate-pulse" />
+                  SCANNING...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-3 h-3" />
+                  SCAN
+                </>
+              )}
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8"><Filter className="w-4 h-4" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="glass-card">
+                <DropdownMenuItem onClick={() => setFilter('all')}>All Services</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilter('midjourney')}>Midjourney</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilter('dalle')}>DALL·E</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilter('stable')}>Stable Diffusion</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilter('runway')}>Runway</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilter('sora')}>Sora</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setView(view === 'grid' ? 'list' : 'grid')}>
+              {view === 'grid' ? <List className="w-4 h-4" /> : <Grid3X3 className="w-4 h-4" />}
+            </Button>
+          </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={simulateScan}>
-            <RefreshCw className="w-4 h-4" />
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8"><Filter className="w-4 h-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="glass-card">
-              <DropdownMenuItem onClick={() => setFilter('all')}>All Services</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilter('midjourney')}>Midjourney</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilter('dalle')}>DALL·E</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilter('stable')}>Stable Diffusion</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilter('runway')}>Runway</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilter('sora')}>Sora</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setView(view === 'grid' ? 'list' : 'grid')}>
-            {view === 'grid' ? <List className="w-4 h-4" /> : <Grid3X3 className="w-4 h-4" />}
-          </Button>
-        </div>
+        
+        {/* Active Session Indicator */}
+        {isScanning && (
+          <motion.div 
+            className="px-4 pb-2"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <div className="flex items-center gap-2 text-[10px] text-primary bg-primary/10 rounded-lg px-3 py-2 border border-primary/20">
+              <div className="relative flex items-center justify-center w-4 h-4">
+                <div className="absolute w-4 h-4 bg-primary/30 rounded-full animate-ping" />
+                <Radio className="w-3 h-3 relative z-10" />
+              </div>
+              <span>Intercepting AI session data stream...</span>
+              <span className="ml-auto font-mono">{scanProgress}%</span>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* Feed Content */}
@@ -202,7 +294,12 @@ export function LiveScanFeed({ assets }: LiveScanFeedProps) {
       {/* Minting Modal */}
       <AnimatePresence>
         {mintingAsset && (
-          <MintingModal asset={mintingAsset} onComplete={handleMintComplete} onClose={() => setMintingAsset(null)} />
+          <MintingModal 
+            asset={mintingAsset} 
+            onComplete={handleMintComplete} 
+            onClose={() => setMintingAsset(null)}
+            onShareViaMemePing={onShareViaMemePing}
+          />
         )}
       </AnimatePresence>
     </div>

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { ScannedAsset } from '@/types/wallet';
 import { ServiceBadge } from './ServiceBadge';
-import { Clock, Check, Loader2, Plus, Image, Video, FileText } from 'lucide-react';
+import { Clock, Check, Loader2, Plus, Image, Video, FileText, Scan, Zap, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -43,11 +43,33 @@ export function AssetCard({
       `}
       onClick={() => onSelect?.(asset.id)}
     >
-      {/* Scan Lines for Ghost State */}
+      {/* Enhanced Scan Effect for Ghost State */}
       {isGhost && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="scan-line" />
-          <div className="absolute inset-0 bg-grid-pattern bg-grid opacity-30" />
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
+          {/* Multiple scan lines */}
+          <motion.div 
+            className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent"
+            animate={{ y: ['-10%', '500%'] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+          />
+          <motion.div 
+            className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"
+            animate={{ y: ['-10%', '500%'] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'linear', delay: 0.3 }}
+          />
+          {/* Grid overlay */}
+          <div className="absolute inset-0 bg-grid-pattern bg-grid opacity-40" />
+          {/* Corner brackets */}
+          <div className="absolute top-2 left-2 w-4 h-4 border-l-2 border-t-2 border-primary" />
+          <div className="absolute top-2 right-2 w-4 h-4 border-r-2 border-t-2 border-primary" />
+          <div className="absolute bottom-2 left-2 w-4 h-4 border-l-2 border-b-2 border-primary" />
+          <div className="absolute bottom-2 right-2 w-4 h-4 border-r-2 border-b-2 border-primary" />
+          {/* Glowing overlay */}
+          <motion.div 
+            className="absolute inset-0 bg-primary/5"
+            animate={{ opacity: [0.05, 0.15, 0.05] }}
+            transition={{ duration: 1, repeat: Infinity }}
+          />
         </div>
       )}
 
@@ -60,34 +82,60 @@ export function AssetCard({
             className={`w-full h-full object-cover ${isGhost ? 'opacity-50 blur-sm' : ''}`}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <TypeIcon className={`w-10 h-10 ${isGhost ? 'text-primary/30' : 'text-primary/50'}`} />
+          <div className="w-full h-full flex items-center justify-center relative">
+            {isGhost ? (
+              <motion.div 
+                className="relative"
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                <Scan className="w-12 h-12 text-primary/50" />
+                <motion.div 
+                  className="absolute inset-0 flex items-center justify-center"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                >
+                  <div className="w-16 h-16 border border-primary/30 rounded-full border-t-primary" />
+                </motion.div>
+              </motion.div>
+            ) : (
+              <TypeIcon className="w-10 h-10 text-primary/50" />
+            )}
           </div>
         )}
 
         {/* Status Badge */}
         <div className="absolute top-2 right-2">
           {isGhost ? (
-            <div className="flex items-center gap-1 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-full text-[10px] text-primary">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              <span>SCANNING</span>
-            </div>
+            <motion.div 
+              className="flex items-center gap-1.5 bg-background/90 backdrop-blur-sm px-2.5 py-1.5 rounded-full text-[10px] text-primary border border-primary/40"
+              animate={{ borderColor: ['hsl(75 100% 55% / 0.4)', 'hsl(75 100% 55% / 0.8)', 'hsl(75 100% 55% / 0.4)'] }}
+              transition={{ duration: 1, repeat: Infinity }}
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              >
+                <Radio className="w-3 h-3" />
+              </motion.div>
+              <span className="font-display font-bold tracking-wider">SCANNING</span>
+            </motion.div>
           ) : isCaptured ? (
             <div className="flex items-center gap-1 bg-success/20 backdrop-blur-sm px-2 py-1 rounded-full text-[10px] text-success border border-success/30">
-              <Check className="w-3 h-3" />
-              <span>CAPTURED</span>
+              <Zap className="w-3 h-3" />
+              <span className="font-display font-bold">CAPTURED</span>
             </div>
           ) : (
             <div className="flex items-center gap-1 bg-primary/20 backdrop-blur-sm px-2 py-1 rounded-full text-[10px] text-primary border border-primary/30">
               <Check className="w-3 h-3" />
-              <span>MINTED</span>
+              <span className="font-display font-bold">MINTED</span>
             </div>
           )}
         </div>
 
         {/* Type Icon Overlay */}
         <div className="absolute bottom-2 left-2">
-          <TypeIcon className="w-4 h-4 text-white/70 drop-shadow-lg" />
+          <TypeIcon className="w-4 h-4 text-foreground/70 drop-shadow-lg" />
         </div>
       </div>
 
@@ -101,8 +149,12 @@ export function AssetCard({
           </div>
         </div>
 
-        <p className="text-xs text-foreground/80 line-clamp-2 font-mono leading-relaxed">
-          {asset.prompt}
+        <p className={`text-xs text-foreground/80 line-clamp-2 font-mono leading-relaxed ${isGhost ? 'animate-pulse' : ''}`}>
+          {isGhost ? (
+            <span className="text-primary/70">Intercepting: {asset.prompt}</span>
+          ) : (
+            asset.prompt
+          )}
         </p>
 
         {/* Actions */}
@@ -110,14 +162,14 @@ export function AssetCard({
           <Button
             variant="outline"
             size="sm"
-            className="w-full mt-2 h-8 text-xs border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground transition-all"
+            className="w-full mt-2 h-8 text-xs border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground transition-all group"
             onClick={(e) => {
               e.stopPropagation();
               onMint?.(asset.id);
             }}
           >
-            <Plus className="w-3 h-3 mr-1" />
-            Add to Wallet
+            <Plus className="w-3 h-3 mr-1 group-hover:rotate-90 transition-transform" />
+            MATERIALIZE TO WALLET
           </Button>
         )}
       </div>
