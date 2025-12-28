@@ -168,8 +168,17 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const handleCopySeedPhrase = () => {
     navigator.clipboard.writeText(seedPhrase.join(' '));
     setCopied(true);
-    toast({ title: 'Copied!', description: 'Keep your seed phrase safe and never share it.' });
+    toast({ 
+      title: 'Copied!', 
+      description: 'Clipboard will be cleared in 30 seconds for security. Keep your seed phrase safe!' 
+    });
     setTimeout(() => setCopied(false), 2000);
+    // Security: Clear clipboard after 30 seconds to prevent clipboard monitoring attacks
+    setTimeout(() => {
+      navigator.clipboard.writeText('').catch(() => {
+        // Silently fail if clipboard access is denied
+      });
+    }, 30000);
   };
 
   const handleSelectWord = (word: string) => {
@@ -214,8 +223,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   const handleSetPin = () => {
-    if (pin.length < 4) {
-      toast({ title: 'Too short!', description: 'PIN needs at least 4 digits.', variant: 'destructive' });
+    if (pin.length < 6) {
+      toast({ title: 'Too short!', description: 'PIN needs at least 6 digits for security.', variant: 'destructive' });
       return;
     }
     if (pin !== confirmPin) {
@@ -534,9 +543,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             </div>
             <div className="flex-1 space-y-4">
               <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Enter PIN (optional)</label>
-                <Input type="password" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="bg-input border-primary/30 text-foreground text-center text-2xl tracking-[1em]" maxLength={6} placeholder="••••" />
+              <label className="text-xs text-muted-foreground">Enter PIN (min 6 digits)</label>
+                <Input type="password" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  className="bg-input border-primary/30 text-foreground text-center text-2xl tracking-[0.5em]" maxLength={8} placeholder="••••••" />
               </div>
               {pin.length > 0 && (
                 <motion.div 
@@ -545,13 +554,13 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   className="space-y-2"
                 >
                   <label className="text-xs text-muted-foreground">Confirm PIN</label>
-                  <Input type="password" value={confirmPin} onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="bg-input border-primary/30 text-foreground text-center text-2xl tracking-[1em]" maxLength={6} placeholder="••••" />
+                  <Input type="password" value={confirmPin} onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    className="bg-input border-primary/30 text-foreground text-center text-2xl tracking-[0.5em]" maxLength={8} placeholder="••••••" />
                 </motion.div>
               )}
             </div>
             <div className="space-y-2">
-              <Button className="w-full h-12 text-sm font-display tracking-wider" onClick={handleSetPin} disabled={pin.length > 0 && (pin.length < 4 || pin !== confirmPin)}>
+              <Button className="w-full h-12 text-sm font-display tracking-wider" onClick={handleSetPin} disabled={pin.length > 0 && (pin.length < 6 || pin !== confirmPin)}>
                 {isQuickStart ? 'CREATE PASSPORT' : isImporting ? 'IMPORT PASSPORT' : 'CREATE PASSPORT'}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
