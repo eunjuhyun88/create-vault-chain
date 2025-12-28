@@ -4,12 +4,13 @@ import { PassportAsset, AssetType } from '@/types/wallet';
 import { ServiceBadge } from './ServiceBadge';
 import { 
   Image, Video, FileText, Filter, Grid3X3, List, 
-  Calendar, Shield, Hash, Clock, Vault, Search
+  Calendar, Shield, Hash, Clock, Vault, Search, Send, Share2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDistanceToNow } from 'date-fns';
 import { PassportDetailModal } from './PassportDetailModal';
+import { MemePingModal } from './MemePingModal';
 
 const demoPassports: PassportAsset[] = [
   {
@@ -74,6 +75,7 @@ export function MyVault() {
   const [typeFilter, setTypeFilter] = useState<AssetType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPassport, setSelectedPassport] = useState<PassportAsset | null>(null);
+  const [memePingAsset, setMemePingAsset] = useState<PassportAsset | null>(null);
 
   const filteredPassports = demoPassports.filter(passport => {
     const matchesType = typeFilter === 'all' || passport.assetType === typeFilter;
@@ -268,6 +270,21 @@ export function MyVault() {
           <PassportDetailModal
             passport={selectedPassport}
             onClose={() => setSelectedPassport(null)}
+            onMemePing={(asset) => {
+              setSelectedPassport(null);
+              setMemePingAsset(asset);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* MemePing Modal */}
+      <AnimatePresence>
+        {memePingAsset && (
+          <MemePingModal
+            asset={memePingAsset}
+            onClose={() => setMemePingAsset(null)}
+            onShare={() => setMemePingAsset(null)}
           />
         )}
       </AnimatePresence>
