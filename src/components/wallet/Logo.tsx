@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import logoImage from '@/assets/playarts-logo.png';
 
 interface LogoProps {
@@ -15,21 +16,44 @@ const sizeMap = {
 export function Logo({ size = 'md', showText = true }: LogoProps) {
   return (
     <div className="flex items-center gap-3">
-      <div className={`${sizeMap[size]} relative animate-pulse-glow rounded-full`}>
+      <motion.div 
+        className={`${sizeMap[size]} relative`}
+        whileHover={{ scale: 1.05 }}
+        transition={{ type: 'spring', stiffness: 400 }}
+      >
+        {/* Glow rings */}
+        <div className="absolute inset-0 rounded-full animate-pulse-glow" />
+        <motion.div 
+          className="absolute -inset-1 rounded-full border border-primary/20"
+          animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.2, 0.5] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        />
+        
         <img 
           src={logoImage} 
           alt="PlayArts" 
-          className="w-full h-full object-contain drop-shadow-[0_0_15px_hsl(75,100%,55%,0.6)]"
+          className="w-full h-full object-contain relative z-10 drop-shadow-[0_0_20px_hsl(75,100%,55%,0.7)]"
         />
-      </div>
+      </motion.div>
+      
       {showText && (
         <div className="flex flex-col">
-          <span className="font-display text-lg font-bold text-primary neon-text tracking-wider">
+          <motion.span 
+            className="font-display text-lg font-bold text-primary neon-text tracking-wider"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+          >
             PLAYARTS
-          </span>
-          <span className="text-xs text-muted-foreground tracking-widest">
-            WALLET
-          </span>
+          </motion.span>
+          <motion.span 
+            className="text-[10px] text-muted-foreground tracking-[0.3em] uppercase"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            Passport
+          </motion.span>
         </div>
       )}
     </div>
