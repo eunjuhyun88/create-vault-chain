@@ -1,18 +1,77 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ScannedAssetPayload {
-  prompt: string;
-  preview_url?: string;
-  source_ai: string;
-  asset_type?: string;
-  metadata?: Record<string, unknown>;
-  user_id?: string;
-}
+// Define valid enum values
+const AssetTypeSchema = z.enum(['image', 'video', 'text']);
+const SourceAISchema = z.enum(['midjourney', 'dalle', 'stable', 'runway', 'sora', 'firefly', 'veo', 'chatgpt']);
+
+// SSRF-safe URL validation (blocks internal/private IPs)
+const securePreviewUrl = z.string().url().max(2000).refine(
+  (url) => {
+    try {
+      const parsed = new URL(url);
+      // Only allow HTTPS/HTTP from public URLs
+      if (!['https:', 'http:'].includes(parsed.protocol)) return false;
+      
+      // Block internal/private IP addresses for SSRF protection
+      const hostname = parsed.hostname.toLowerCase();
+      const blockedPatterns = [
+        /^localhost$/i,
+        /^127\./,
+        /^10\./,
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+        /^192\.168\./,
+        /^0\.0\.0\.0$/,
+        /^::1$/,
+        /^\[::1\]$/,
+        /^169\.254\./, // Link-local
+      ];
+      for (const pattern of blockedPatterns) {
+        if (pattern.test(hostname)) return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  { message: 'Preview URL must be HTTP(S) and not target internal addresses' }
+).optional();
+
+// Input validation schemas
+const SaveAssetSchema = z.object({
+  prompt: z.string().min(1, 'Prompt is required').max(1000, 'Prompt too long').transform(s => s.trim()),
+  preview_url: securePreviewUrl,
+  source_ai: z.string().min(1, 'Source AI is required').max(50),
+  asset_type: AssetTypeSchema.optional().default('image'),
+  user_id: z.string().uuid('Invalid user ID format').nullable().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+const SaveBatchSchema = z.object({
+  assets: z.array(SaveAssetSchema).min(1, 'At least one asset required').max(50, 'Maximum 50 assets per batch'),
+});
+
+const GetAssetsSchema = z.object({
+  user_id: z.string().uuid().nullable().optional(),
+  status: z.enum(['scanning', 'captured', 'minted']).optional(),
+  limit: z.number().int().min(1).max(100).optional().default(50),
+  offset: z.number().int().min(0).optional().default(0),
+});
+
+const MintSchema = z.object({
+  scanned_asset_id: z.string().uuid('Invalid asset ID'),
+  user_id: z.string().uuid('Invalid user ID').nullable().optional(),
+});
+
+const DeleteAssetSchema = z.object({
+  asset_id: z.string().uuid('Invalid asset ID'),
+  user_id: z.string().uuid('Invalid user ID').nullable().optional(),
+});
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -29,26 +88,31 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case 'save_scanned_asset': {
-        const payload = data as ScannedAssetPayload;
-
-        // Validate required fields
-        if (!payload.prompt || !payload.source_ai) {
+        // Validate input with zod schema
+        const parseResult = SaveAssetSchema.safeParse(data);
+        if (!parseResult.success) {
+          console.error('[Extension Sync] Validation error:', parseResult.error.errors);
           return new Response(
-            JSON.stringify({ error: 'Missing required fields: prompt and source_ai' }),
+            JSON.stringify({ 
+              error: 'Invalid input', 
+              details: parseResult.error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+            }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
+        const payload = parseResult.data;
+        
         // Map source_ai to valid enum values
         const validSourceAI = mapSourceAI(payload.source_ai);
 
         const { data: asset, error } = await supabase
           .from('scanned_assets')
           .insert({
-            prompt: payload.prompt.substring(0, 1000), // Limit prompt length
+            prompt: payload.prompt,
             preview_url: payload.preview_url,
             source_ai: validSourceAI,
-            asset_type: payload.asset_type || 'image',
+            asset_type: payload.asset_type,
             status: 'captured',
             user_id: payload.user_id || null,
           })
@@ -69,23 +133,26 @@ Deno.serve(async (req) => {
       }
 
       case 'save_batch_assets': {
-        const { assets } = data as { assets: ScannedAssetPayload[] };
-
-        if (!assets || !Array.isArray(assets) || assets.length === 0) {
+        // Validate batch input with zod schema
+        const parseResult = SaveBatchSchema.safeParse(data);
+        if (!parseResult.success) {
+          console.error('[Extension Sync] Batch validation error:', parseResult.error.errors);
           return new Response(
-            JSON.stringify({ error: 'No assets provided' }),
+            JSON.stringify({ 
+              error: 'Invalid input', 
+              details: parseResult.error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+            }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        // Limit batch size
-        const limitedAssets = assets.slice(0, 50);
+        const { assets } = parseResult.data;
 
-        const insertData = limitedAssets.map(asset => ({
-          prompt: asset.prompt?.substring(0, 1000) || 'AI Generated Content',
+        const insertData = assets.map(asset => ({
+          prompt: asset.prompt,
           preview_url: asset.preview_url,
           source_ai: mapSourceAI(asset.source_ai),
-          asset_type: asset.asset_type || 'image',
+          asset_type: asset.asset_type,
           status: 'captured' as const,
           user_id: asset.user_id || null,
         }));
@@ -109,7 +176,19 @@ Deno.serve(async (req) => {
       }
 
       case 'get_scanned_assets': {
-        const { user_id, status, limit = 50, offset = 0 } = data;
+        // Validate query parameters
+        const parseResult = GetAssetsSchema.safeParse(data || {});
+        if (!parseResult.success) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Invalid query parameters', 
+              details: parseResult.error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { user_id, status, limit, offset } = parseResult.data;
 
         let query = supabase
           .from('scanned_assets')
@@ -138,7 +217,19 @@ Deno.serve(async (req) => {
       }
 
       case 'mint_to_passport': {
-        const { scanned_asset_id, user_id } = data;
+        // Validate mint request
+        const parseResult = MintSchema.safeParse(data);
+        if (!parseResult.success) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Invalid mint request', 
+              details: parseResult.error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { scanned_asset_id, user_id } = parseResult.data;
 
         // Get the scanned asset
         const { data: scannedAsset, error: fetchError } = await supabase
@@ -200,7 +291,19 @@ Deno.serve(async (req) => {
       }
 
       case 'delete_scanned_asset': {
-        const { asset_id, user_id } = data;
+        // Validate delete request
+        const parseResult = DeleteAssetSchema.safeParse(data);
+        if (!parseResult.success) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Invalid delete request', 
+              details: parseResult.error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { asset_id, user_id } = parseResult.data;
 
         let query = supabase
           .from('scanned_assets')

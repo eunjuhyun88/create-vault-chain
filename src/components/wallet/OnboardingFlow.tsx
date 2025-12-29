@@ -172,15 +172,15 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setCopied(true);
     toast({ 
       title: 'Copied!', 
-      description: 'Clipboard will be cleared in 30 seconds for security. Keep your seed phrase safe!' 
+      description: 'Clipboard will be cleared in 5 seconds for security.' 
     });
     setTimeout(() => setCopied(false), 2000);
-    // Security: Clear clipboard after 30 seconds to prevent clipboard monitoring attacks
+    // Security: Clear clipboard after 5 seconds to minimize clipboard exposure
     setTimeout(() => {
       navigator.clipboard.writeText('').catch(() => {
         // Silently fail if clipboard access is denied
       });
-    }, 30000);
+    }, 5000);
   };
 
   const handleSelectWord = (word: string) => {
@@ -479,6 +479,14 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <h2 className="font-display text-lg font-bold text-primary mb-1">YOUR SECRET PHRASE</h2>
               <p className="text-[10px] text-muted-foreground">Write these down and keep them somewhere safe!</p>
             </div>
+            
+            {/* Demo Mode Warning */}
+            <div className="glass-card p-2 mb-3 border-amber-500/30 bg-amber-500/5">
+              <p className="text-[10px] text-amber-500 text-center">
+                ⚠️ Demo Mode: This seed phrase is for UI preview only and does not enable actual wallet recovery.
+              </p>
+            </div>
+            
             <div className="flex-1 overflow-auto">
               <div className="grid grid-cols-3 gap-2 mb-4">
                 {seedPhrase.map((word, index) => (
