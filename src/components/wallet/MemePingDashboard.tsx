@@ -1,16 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PassportAsset } from '@/types/wallet';
 import { ServiceBadge } from './ServiceBadge';
 import { 
   Send, TrendingUp, Eye, Heart, Share2, MessageCircle, Repeat2, 
   Hash, ExternalLink, Twitter, Globe, Filter, RefreshCw, Sparkles,
-  ChevronRight, Plus, Zap, Megaphone
+  ChevronRight, Plus, Zap, Megaphone, Bell, BellRing, CheckCheck,
+  AlertTriangle, DollarSign, Trophy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { MemePingModal } from './MemePingModal';
 import { useWallet } from '@/contexts/WalletContext';
+import { 
+  useMemePingAlerts, 
+  useUnreadAlertCount, 
+  useMarkAlertRead,
+  useMarkAllAlertsRead,
+  useCreateDemoAlerts,
+  useRealtimeAlerts
+} from '@/hooks/useMemePing';
+import { MemePingAlert } from '@/services/memePingService';
+import { useToast } from '@/hooks/use-toast';
 
 interface MemePingDashboardProps {
   onNavigateToCampaigns?: () => void;
@@ -67,12 +78,45 @@ const demoPosts: MemePingPost[] = [
 const platformIcons = { twitter: Twitter, farcaster: MessageCircle, lens: Globe };
 const platformColors = { twitter: 'text-[#1DA1F2]', farcaster: 'text-[#8A63D2]', lens: 'text-[#ABFE2C]' };
 
+const alertTypeIcons: Record<string, React.ElementType> = {
+  viral: Zap,
+  repost: Repeat2,
+  infringement: AlertTriangle,
+  revenue: DollarSign,
+  ranking: Trophy,
+};
+
+const alertTypeColors: Record<string, string> = {
+  viral: 'text-warning bg-warning/10',
+  repost: 'text-primary bg-primary/10',
+  infringement: 'text-destructive bg-destructive/10',
+  revenue: 'text-success bg-success/10',
+  ranking: 'text-accent bg-accent/10',
+};
+
 export function MemePingDashboard({ onNavigateToCampaigns, onOpenShareModal }: MemePingDashboardProps) {
   const [posts] = useState<MemePingPost[]>(demoPosts);
   const [filterPlatform, setFilterPlatform] = useState<'all' | 'twitter' | 'farcaster' | 'lens'>('all');
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedAssetForShare, setSelectedAssetForShare] = useState<PassportAsset | null>(null);
+  const [activeTab, setActiveTab] = useState<'posts' | 'alerts'>('posts');
   const { wallet } = useWallet();
+  const { toast } = useToast();
+
+  // MemePing hooks
+  const { data: alerts = [], isLoading: alertsLoading, refetch: refetchAlerts } = useMemePingAlerts({ limit: 50 });
+  const { data: unreadCount = 0 } = useUnreadAlertCount();
+  const markRead = useMarkAlertRead();
+  const markAllRead = useMarkAllAlertsRead();
+  const createDemoAlerts = useCreateDemoAlerts();
+
+  // Realtime subscription
+  useRealtimeAlerts(undefined, (newAlert) => {
+    toast({
+      title: newAlert.title,
+      description: newAlert.body,
+    });
+  });
 
   const filteredPosts = posts.filter(p => filterPlatform === 'all' || p.platform === filterPlatform);
   const totalPIM = posts.reduce((sum, p) => sum + p.pimEarned, 0);
@@ -94,6 +138,12 @@ export function MemePingDashboard({ onNavigateToCampaigns, onOpenShareModal }: M
     setSelectedAssetForShare(null);
   };
 
+  const handleAlertClick = (alert: MemePingAlert) => {
+    if (!alert.read) {
+      markRead.mutate({ alertId: alert.id });
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -103,9 +153,34 @@ export function MemePingDashboard({ onNavigateToCampaigns, onOpenShareModal }: M
             <Send className="w-4 h-4 text-primary" />
             <h2 className="font-display text-sm font-semibold">MEMEPING</h2>
           </div>
-          <Button size="sm" className="h-7 text-[10px]" onClick={handleNewPost}>
-            <Plus className="w-3 h-3 mr-1" />New Post
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 text-[10px] relative"
+              onClick={() => setActiveTab(activeTab === 'posts' ? 'alerts' : 'posts')}
+            >
+              {activeTab === 'posts' ? (
+                <>
+                  <Bell className="w-3 h-3 mr-1" />
+                  Alerts
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[8px] rounded-full flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Send className="w-3 h-3 mr-1" />
+                  Posts
+                </>
+              )}
+            </Button>
+            <Button size="sm" className="h-7 text-[10px]" onClick={handleNewPost}>
+              <Plus className="w-3 h-3 mr-1" />New Post
+            </Button>
+          </div>
         </div>
 
         {/* Stats Row */}
@@ -121,9 +196,9 @@ export function MemePingDashboard({ onNavigateToCampaigns, onOpenShareModal }: M
             <p className="text-[10px] text-muted-foreground">Views</p>
           </div>
           <div className="glass-card p-2 text-center">
-            <Zap className="w-3 h-3 text-warning mx-auto mb-1" />
-            <p className="text-xs font-semibold text-warning">{viralCount}</p>
-            <p className="text-[10px] text-muted-foreground">Viral</p>
+            <BellRing className="w-3 h-3 text-warning mx-auto mb-1" />
+            <p className="text-xs font-semibold text-warning">{unreadCount}</p>
+            <p className="text-[10px] text-muted-foreground">Unread</p>
           </div>
         </div>
 
@@ -144,94 +219,199 @@ export function MemePingDashboard({ onNavigateToCampaigns, onOpenShareModal }: M
         )}
       </div>
 
-      {/* Platform Filter */}
-      <div className="flex gap-2 px-4 py-2 border-b border-border/30">
-        {(['all', 'twitter', 'farcaster', 'lens'] as const).map((platform) => {
-          const Icon = platform === 'all' ? Filter : platformIcons[platform];
-          return (
-            <Button key={platform} variant={filterPlatform === platform ? 'default' : 'outline'} size="sm"
-              className={`h-7 text-[10px] ${filterPlatform !== platform ? 'border-primary/20' : ''}`}
-              onClick={() => setFilterPlatform(platform)}>
-              <Icon className="w-3 h-3 mr-1" />
-              {platform === 'all' ? 'All' : platform.charAt(0).toUpperCase() + platform.slice(1)}
-            </Button>
-          );
-        })}
-      </div>
-
-      {/* Posts List */}
-      <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-3">
-        {filteredPosts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <Send className="w-12 h-12 text-primary/30 mb-4" />
-            <p className="text-sm text-muted-foreground">No posts yet</p>
-            <p className="text-xs text-muted-foreground/60">Share your minted assets to start earning PIM</p>
-          </div>
-        ) : (
-          <AnimatePresence>
-            {filteredPosts.map((post, index) => {
-              const PlatformIcon = platformIcons[post.platform];
+      {/* Content based on active tab */}
+      {activeTab === 'posts' ? (
+        <>
+          {/* Platform Filter */}
+          <div className="flex gap-2 px-4 py-2 border-b border-border/30">
+            {(['all', 'twitter', 'farcaster', 'lens'] as const).map((platform) => {
+              const Icon = platform === 'all' ? Filter : platformIcons[platform];
               return (
-                <motion.div key={post.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }} className="glass-card overflow-hidden">
-                  <div className="flex items-center gap-3 p-3 border-b border-border/20">
-                    <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                      <img src={post.asset.previewUrl} alt="" className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <PlatformIcon className={`w-4 h-4 ${platformColors[post.platform]}`} />
-                        <ServiceBadge service={post.asset.sourceAI} size="sm" />
-                        {post.status === 'viral' && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/20 text-warning flex items-center gap-1">
-                            <Zap className="w-2.5 h-2.5" />VIRAL
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-foreground line-clamp-1">{post.content}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {formatDistanceToNow(post.timestamp, { addSuffix: true })}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-5 gap-1 p-2 bg-muted/20">
-                    <div className="text-center"><Eye className="w-3 h-3 text-muted-foreground mx-auto" />
-                      <p className="text-[10px] text-foreground font-semibold">{(post.metrics.views / 1000).toFixed(1)}K</p></div>
-                    <div className="text-center"><Heart className="w-3 h-3 text-destructive mx-auto" />
-                      <p className="text-[10px] text-foreground font-semibold">{post.metrics.likes}</p></div>
-                    <div className="text-center"><Repeat2 className="w-3 h-3 text-success mx-auto" />
-                      <p className="text-[10px] text-foreground font-semibold">{post.metrics.shares}</p></div>
-                    <div className="text-center"><MessageCircle className="w-3 h-3 text-primary mx-auto" />
-                      <p className="text-[10px] text-foreground font-semibold">{post.metrics.quotes}</p></div>
-                    <div className="text-center"><Sparkles className="w-3 h-3 text-warning mx-auto" />
-                      <p className="text-[10px] text-foreground font-semibold">{post.metrics.remixes}</p></div>
-                  </div>
-                  <div className="flex items-center justify-between px-3 py-2 bg-primary/5">
-                    <div className="flex items-center gap-2">
-                      <Hash className="w-3 h-3 text-primary" />
-                      <span className="text-[10px] text-primary font-mono">{post.asset.acpId}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <TrendingUp className="w-3 h-3 text-success" />
-                      <span className="text-xs font-semibold text-success">+{post.pimEarned.toLocaleString()} PIM</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 p-2 border-t border-border/20">
-                    <Button variant="ghost" size="sm" className="flex-1 h-7 text-[10px]">
-                      <RefreshCw className="w-3 h-3 mr-1" />Refresh
-                    </Button>
-                    <Button variant="ghost" size="sm" className="flex-1 h-7 text-[10px]" asChild>
-                      <a href={post.postUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-3 h-3 mr-1" />View Post
-                      </a>
-                    </Button>
-                  </div>
-                </motion.div>
+                <Button key={platform} variant={filterPlatform === platform ? 'default' : 'outline'} size="sm"
+                  className={`h-7 text-[10px] ${filterPlatform !== platform ? 'border-primary/20' : ''}`}
+                  onClick={() => setFilterPlatform(platform)}>
+                  <Icon className="w-3 h-3 mr-1" />
+                  {platform === 'all' ? 'All' : platform.charAt(0).toUpperCase() + platform.slice(1)}
+                </Button>
               );
             })}
-          </AnimatePresence>
-        )}
-      </div>
+          </div>
+
+          {/* Posts List */}
+          <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-3">
+            {filteredPosts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <Send className="w-12 h-12 text-primary/30 mb-4" />
+                <p className="text-sm text-muted-foreground">No posts yet</p>
+                <p className="text-xs text-muted-foreground/60">Share your minted assets to start earning PIM</p>
+              </div>
+            ) : (
+              <AnimatePresence>
+                {filteredPosts.map((post, index) => {
+                  const PlatformIcon = platformIcons[post.platform];
+                  return (
+                    <motion.div key={post.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }} className="glass-card overflow-hidden">
+                      <div className="flex items-center gap-3 p-3 border-b border-border/20">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                          <img src={post.asset.previewUrl} alt="" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <PlatformIcon className={`w-4 h-4 ${platformColors[post.platform]}`} />
+                            <ServiceBadge service={post.asset.sourceAI} size="sm" />
+                            {post.status === 'viral' && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/20 text-warning flex items-center gap-1">
+                                <Zap className="w-2.5 h-2.5" />VIRAL
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-foreground line-clamp-1">{post.content}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {formatDistanceToNow(post.timestamp, { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-5 gap-1 p-2 bg-muted/20">
+                        <div className="text-center"><Eye className="w-3 h-3 text-muted-foreground mx-auto" />
+                          <p className="text-[10px] text-foreground font-semibold">{(post.metrics.views / 1000).toFixed(1)}K</p></div>
+                        <div className="text-center"><Heart className="w-3 h-3 text-destructive mx-auto" />
+                          <p className="text-[10px] text-foreground font-semibold">{post.metrics.likes}</p></div>
+                        <div className="text-center"><Repeat2 className="w-3 h-3 text-success mx-auto" />
+                          <p className="text-[10px] text-foreground font-semibold">{post.metrics.shares}</p></div>
+                        <div className="text-center"><MessageCircle className="w-3 h-3 text-primary mx-auto" />
+                          <p className="text-[10px] text-foreground font-semibold">{post.metrics.quotes}</p></div>
+                        <div className="text-center"><Sparkles className="w-3 h-3 text-warning mx-auto" />
+                          <p className="text-[10px] text-foreground font-semibold">{post.metrics.remixes}</p></div>
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2 bg-primary/5">
+                        <div className="flex items-center gap-2">
+                          <Hash className="w-3 h-3 text-primary" />
+                          <span className="text-[10px] text-primary font-mono">{post.asset.acpId}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <TrendingUp className="w-3 h-3 text-success" />
+                          <span className="text-xs font-semibold text-success">+{post.pimEarned.toLocaleString()} PIM</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 p-2 border-t border-border/20">
+                        <Button variant="ghost" size="sm" className="flex-1 h-7 text-[10px]">
+                          <RefreshCw className="w-3 h-3 mr-1" />Refresh
+                        </Button>
+                        <Button variant="ghost" size="sm" className="flex-1 h-7 text-[10px]" asChild>
+                          <a href={post.postUrl} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="w-3 h-3 mr-1" />View Post
+                          </a>
+                        </Button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Alerts Header */}
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border/30">
+            <p className="text-xs text-muted-foreground">
+              {alerts.length} alert{alerts.length !== 1 ? 's' : ''}
+            </p>
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 text-[10px]"
+                  onClick={() => markAllRead.mutate(undefined)}
+                  disabled={markAllRead.isPending}
+                >
+                  <CheckCheck className="w-3 h-3 mr-1" />
+                  Mark all read
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-7 text-[10px]"
+                onClick={() => createDemoAlerts.mutate()}
+                disabled={createDemoAlerts.isPending}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Demo
+              </Button>
+            </div>
+          </div>
+
+          {/* Alerts List */}
+          <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-2">
+            {alertsLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <RefreshCw className="w-6 h-6 text-primary animate-spin" />
+              </div>
+            ) : alerts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <Bell className="w-12 h-12 text-primary/30 mb-4" />
+                <p className="text-sm text-muted-foreground">No alerts yet</p>
+                <p className="text-xs text-muted-foreground/60 mb-4">
+                  Your viral alerts and notifications will appear here
+                </p>
+                <Button 
+                  size="sm" 
+                  onClick={() => createDemoAlerts.mutate()}
+                  disabled={createDemoAlerts.isPending}
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Create Demo Alerts
+                </Button>
+              </div>
+            ) : (
+              <AnimatePresence>
+                {alerts.map((alert, index) => {
+                  const AlertIcon = alertTypeIcons[alert.alert_type] || Bell;
+                  const colorClass = alertTypeColors[alert.alert_type] || 'text-primary bg-primary/10';
+                  
+                  return (
+                    <motion.div
+                      key={alert.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                      className={`glass-card p-3 cursor-pointer transition-all hover:border-primary/40 ${
+                        !alert.read ? 'border-primary/30 bg-primary/5' : ''
+                      }`}
+                      onClick={() => handleAlertClick(alert)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg ${colorClass}`}>
+                          <AlertIcon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-xs font-medium text-foreground line-clamp-1">
+                              {alert.title}
+                            </p>
+                            {!alert.read && (
+                              <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground line-clamp-2">
+                            {alert.body}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground/60 mt-1">
+                            {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Share Modal */}
       <AnimatePresence>
