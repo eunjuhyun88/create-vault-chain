@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Logo } from './Logo';
 import { Button } from '@/components/ui/button';
+import { InteractiveButton } from '@/components/ui/interactive-button';
 import { Input } from '@/components/ui/input';
 import { Wallet, Key, Shield, Check, ArrowRight, Lock, X, Zap, Sparkles, Camera, Gift } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { haptic } from '@/hooks/use-haptic';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -310,42 +312,42 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               transition={{ delay: 0.6 }}
             >
               {/* Quick Start - Primary */}
-              <Button 
-                className="w-full h-14 text-sm font-display tracking-wider relative overflow-hidden group" 
-                onClick={handleQuickStart}
+              <InteractiveButton 
+                className="w-full h-14 text-sm font-display tracking-wider" 
+                onClick={() => { haptic.medium(); handleQuickStart(); }}
+                variant="cyber"
+                size="xl"
+                hapticFeedback="medium"
               >
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                  animate={{ x: ['-100%', '200%'] }}
-                  transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-primary to-accent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Zap className="w-5 h-5 mr-3 relative z-10" />
-                <div className="flex flex-col items-start relative z-10">
+                <Zap className="w-5 h-5 mr-3" />
+                <div className="flex flex-col items-start">
                   <span className="text-sm">QUICK START</span>
                   <span className="text-[10px] opacity-80 font-normal font-mono">Get started in seconds</span>
                 </div>
-              </Button>
+              </InteractiveButton>
               
               {/* Full Setup - Secondary */}
-              <Button 
+              <InteractiveButton 
                 variant="outline" 
-                className="w-full h-12 text-sm font-display tracking-wider border-primary/50 hover:bg-primary/10 hover:border-primary transition-all group"
-                onClick={handleFullSetup}
+                className="w-full h-12 text-sm font-display tracking-wider"
+                onClick={() => { haptic.light(); handleFullSetup(); }}
+                hapticFeedback="light"
               >
-                <Shield className="w-4 h-4 mr-2 group-hover:text-primary transition-colors" />
-                <span className="group-hover:text-primary transition-colors">SECURE SETUP</span>
-              </Button>
+                <Shield className="w-4 h-4 mr-2" />
+                SECURE SETUP
+              </InteractiveButton>
               
               {/* Import - Tertiary */}
-              <Button 
+              <InteractiveButton 
                 variant="ghost" 
-                className="w-full h-10 text-xs text-muted-foreground hover:text-primary transition-colors group"
-                onClick={() => { setIsImporting(true); setCurrentStep('import-phrase'); }}
+                className="w-full h-10 text-xs text-muted-foreground hover:text-primary"
+                onClick={() => { haptic.selection(); setIsImporting(true); setCurrentStep('import-phrase'); }}
+                hapticFeedback="light"
+                glowOnHover={false}
               >
-                <Key className="w-3 h-3 mr-2 group-hover:rotate-12 transition-transform" />
+                <Key className="w-3 h-3 mr-2" />
                 I already have a passport
-              </Button>
+              </InteractiveButton>
             </motion.div>
             
             <motion.p 

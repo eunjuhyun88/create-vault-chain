@@ -6,8 +6,10 @@ import { ScanOverlay } from './ScanOverlay';
 import { useWallet } from '@/contexts/WalletContext';
 import { Filter, Grid3X3, List, Sparkles, RefreshCw, Radio, Scan, Zap, Activity, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { InteractiveButton } from '@/components/ui/interactive-button';
 import { MintingModal } from './MintingModal';
 import { useToast } from '@/hooks/use-toast';
+import { haptic } from '@/hooks/use-haptic';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -114,6 +116,7 @@ export function LiveScanFeed({ assets, onShareViaMemePing }: LiveScanFeedProps) 
   };
 
   const simulateScan = () => {
+    haptic.medium();
     setIsScanning(true);
     const services: AIService[] = ['midjourney', 'dalle', 'stable', 'runway', 'sora', 'firefly', 'veo', 'chatgpt'];
     const prompts = [
@@ -139,6 +142,7 @@ export function LiveScanFeed({ assets, onShareViaMemePing }: LiveScanFeedProps) 
 
     // Convert to captured after scanning animation
     setTimeout(() => {
+      haptic.success();
       const images = [
         'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&h=300&fit=crop',
         'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=400&h=300&fit=crop',
@@ -209,12 +213,13 @@ export function LiveScanFeed({ assets, onShareViaMemePing }: LiveScanFeedProps) 
           </div>
 
           <div className="flex items-center gap-1">
-            <Button 
+            <InteractiveButton 
               variant={isScanning ? "default" : "outline"} 
               size="sm" 
               className={`h-8 text-xs gap-1 ${isScanning ? '' : 'border-primary/40'}`}
               onClick={simulateScan}
               disabled={isScanning}
+              hapticFeedback="medium"
             >
               {isScanning ? (
                 <>
@@ -227,7 +232,7 @@ export function LiveScanFeed({ assets, onShareViaMemePing }: LiveScanFeedProps) 
                   SCAN
                 </>
               )}
-            </Button>
+            </InteractiveButton>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
