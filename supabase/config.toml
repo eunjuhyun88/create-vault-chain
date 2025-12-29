@@ -1,1 +1,10 @@
 project_id = "sfunjjklsgubgtudfkcz"
+
+[functions.memeping-track]
+verify_jwt = false
+
+[functions.memeping-pim]
+verify_jwt = false
+
+[functions.memeping-alerts]
+verify_jwt = false
