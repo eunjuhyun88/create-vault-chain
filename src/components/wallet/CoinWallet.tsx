@@ -7,9 +7,11 @@ import {
   Sparkles, Copy, Check, ChevronRight, X, ExternalLink, AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { InteractiveButton } from '@/components/ui/interactive-button';
 import { Input } from '@/components/ui/input';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { haptic } from '@/hooks/use-haptic';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +54,7 @@ export function CoinWallet({ onClose }: CoinWalletProps) {
   const LARGE_TRANSACTION_THRESHOLD = 10000;
 
   const handleCopyAddress = () => {
+    haptic.success();
     navigator.clipboard.writeText(wallet.address);
     setCopied(true);
     toast({ title: 'Address copied!' });
@@ -281,9 +284,15 @@ export function CoinWallet({ onClose }: CoinWalletProps) {
                 <Input value={sendMemo} onChange={(e) => handleMemoChange(e.target.value)}
                   placeholder="Payment for..." className="bg-input border-primary/20" maxLength={MAX_MEMO_LENGTH} />
               </div>
-              <Button className="w-full h-11 font-display tracking-wider mt-4" onClick={handleSend} disabled={isSending}>
+              <InteractiveButton 
+                className="w-full h-11 font-display tracking-wider mt-4" 
+                onClick={handleSend} 
+                disabled={isSending}
+                hapticFeedback="heavy"
+                variant="cyber"
+              >
                 {isSending ? 'SENDING...' : 'SEND PLART'}
-              </Button>
+              </InteractiveButton>
             </motion.div>
           )}
 
