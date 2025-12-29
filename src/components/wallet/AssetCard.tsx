@@ -43,33 +43,20 @@ export function AssetCard({
       `}
       onClick={() => onSelect?.(asset.id)}
     >
-      {/* Enhanced Scan Effect for Ghost State */}
+      {/* Subtle Scan Effect for Ghost State */}
       {isGhost && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
-          {/* Multiple scan lines */}
+          {/* Single slow scan line */}
           <motion.div 
-            className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent"
+            className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"
             animate={{ y: ['-10%', '500%'] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+            transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
           />
-          <motion.div 
-            className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"
-            animate={{ y: ['-10%', '500%'] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'linear', delay: 0.3 }}
-          />
-          {/* Grid overlay */}
-          <div className="absolute inset-0 bg-grid-pattern bg-grid opacity-40" />
-          {/* Corner brackets */}
-          <div className="absolute top-2 left-2 w-4 h-4 border-l-2 border-t-2 border-primary" />
-          <div className="absolute top-2 right-2 w-4 h-4 border-r-2 border-t-2 border-primary" />
-          <div className="absolute bottom-2 left-2 w-4 h-4 border-l-2 border-b-2 border-primary" />
-          <div className="absolute bottom-2 right-2 w-4 h-4 border-r-2 border-b-2 border-primary" />
-          {/* Glowing overlay */}
-          <motion.div 
-            className="absolute inset-0 bg-primary/5"
-            animate={{ opacity: [0.05, 0.15, 0.05] }}
-            transition={{ duration: 1, repeat: Infinity }}
-          />
+          {/* Corner brackets - static */}
+          <div className="absolute top-2 left-2 w-3 h-3 border-l border-t border-primary/50" />
+          <div className="absolute top-2 right-2 w-3 h-3 border-r border-t border-primary/50" />
+          <div className="absolute bottom-2 left-2 w-3 h-3 border-l border-b border-primary/50" />
+          <div className="absolute bottom-2 right-2 w-3 h-3 border-r border-b border-primary/50" />
         </div>
       )}
 
@@ -79,25 +66,21 @@ export function AssetCard({
           <img 
             src={asset.previewUrl} 
             alt="Asset preview" 
-            className={`w-full h-full object-cover ${isGhost ? 'opacity-50 blur-sm' : ''}`}
+            className={`w-full h-full object-cover ${isGhost ? 'opacity-60' : ''}`}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center relative">
             {isGhost ? (
-              <motion.div 
-                className="relative"
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                <Scan className="w-12 h-12 text-primary/50" />
+              <div className="relative">
+                <Scan className="w-10 h-10 text-primary/40" />
                 <motion.div 
                   className="absolute inset-0 flex items-center justify-center"
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                  transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
                 >
-                  <div className="w-16 h-16 border border-primary/30 rounded-full border-t-primary" />
+                  <div className="w-14 h-14 border border-primary/20 rounded-full border-t-primary/50" />
                 </motion.div>
-              </motion.div>
+              </div>
             ) : (
               <TypeIcon className="w-10 h-10 text-primary/50" />
             )}
@@ -107,19 +90,15 @@ export function AssetCard({
         {/* Status Badge */}
         <div className="absolute top-2 right-2">
           {isGhost ? (
-            <motion.div 
-              className="flex items-center gap-1.5 bg-background/90 backdrop-blur-sm px-2.5 py-1.5 rounded-full text-[10px] text-primary border border-primary/40"
-              animate={{ borderColor: ['hsl(75 100% 55% / 0.4)', 'hsl(75 100% 55% / 0.8)', 'hsl(75 100% 55% / 0.4)'] }}
-              transition={{ duration: 1, repeat: Infinity }}
-            >
+            <div className="flex items-center gap-1.5 bg-background/90 backdrop-blur-sm px-2 py-1 rounded-full text-[10px] text-primary border border-primary/30">
               <motion.div
                 animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
               >
                 <Radio className="w-3 h-3" />
               </motion.div>
               <span className="font-display font-bold tracking-wider">SCANNING</span>
-            </motion.div>
+            </div>
           ) : isCaptured ? (
             <div className="flex items-center gap-1 bg-success/20 backdrop-blur-sm px-2 py-1 rounded-full text-[10px] text-success border border-success/30">
               <Zap className="w-3 h-3" />
@@ -149,9 +128,9 @@ export function AssetCard({
           </div>
         </div>
 
-        <p className={`text-xs text-foreground/80 line-clamp-2 font-mono leading-relaxed ${isGhost ? 'animate-pulse' : ''}`}>
+        <p className="text-xs text-foreground/80 line-clamp-2 font-mono leading-relaxed">
           {isGhost ? (
-            <span className="text-primary/70">Intercepting: {asset.prompt}</span>
+            <span className="text-primary/60">Scanning: {asset.prompt}</span>
           ) : (
             asset.prompt
           )}
