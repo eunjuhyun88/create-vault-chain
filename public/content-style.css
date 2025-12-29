@@ -1,0 +1,73 @@
+/* PlayArts Wallet - Content Script Styles */
+
+#playarts-scan-indicator {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2147483647;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.playarts-indicator-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 20px;
+  padding: 8px 16px;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.playarts-pulse {
+  width: 8px;
+  height: 8px;
+  background: #8B5CF6;
+  border-radius: 50%;
+  animation: playarts-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes playarts-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+}
+
+/* Captured asset highlight effect */
+.playarts-captured {
+  position: relative;
+}
+
+.playarts-captured::after {
+  content: '✓ Captured';
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: linear-gradient(135deg, #8B5CF6, #6366F1);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  z-index: 1000;
+  animation: playarts-fade-in 0.3s ease-out;
+}
+
+@keyframes playarts-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
