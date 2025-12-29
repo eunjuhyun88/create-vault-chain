@@ -1,0 +1,65 @@
+{
+  "manifest_version": 3,
+  "name": "PlayArts Wallet",
+  "version": "1.0.0",
+  "description": "AI Creation Wallet - Scan, Capture & Mint your AI-generated assets",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://chat.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://www.midjourney.com/*",
+    "https://discord.com/*",
+    "https://runway.ml/*",
+    "https://firefly.adobe.com/*",
+    "https://labs.google/*",
+    "https://*.stability.ai/*"
+  ],
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "PlayArts Wallet"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://www.midjourney.com/*",
+        "https://discord.com/*",
+        "https://runway.ml/*",
+        "https://firefly.adobe.com/*",
+        "https://labs.google/*",
+        "https://*.stability.ai/*"
+      ],
+      "js": ["content-script.js"],
+      "css": ["content-style.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*", "icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
