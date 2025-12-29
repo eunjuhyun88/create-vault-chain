@@ -257,113 +257,182 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     switch (currentStep) {
       case 'welcome':
         return (
-          <motion.div key="welcome" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-            className="flex flex-col items-center justify-center h-full px-6 text-center">
-            <div className="mb-8"><Logo size="xl" showText={false} /></div>
-            <h1 className="font-display text-2xl font-bold text-primary neon-text mb-2">PLAYARTS</h1>
-            <p className="text-lg text-foreground font-medium mb-1">Passport (Wallet)</p>
-            <p className="text-muted-foreground text-sm mb-8 max-w-xs">
-              Your creative identity for the AI generation. Capture, collect, and earn.
-            </p>
+          <motion.div key="welcome" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+            className="flex flex-col items-center justify-center h-full px-6 text-center relative">
             
-            <div className="space-y-3 w-full max-w-xs">
+            {/* Background Effects */}
+            <div className="absolute inset-0 cyber-grid opacity-30" />
+            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-primary/10 rounded-full blur-[80px]" />
+            
+            {/* Logo with enhanced glow */}
+            <motion.div 
+              className="mb-6 relative"
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              <div className="absolute inset-0 scale-150 bg-primary/20 rounded-full blur-[40px]" />
+              <Logo size="xl" showText={false} />
+            </motion.div>
+            
+            {/* Title */}
+            <motion.h1 
+              className="font-display text-3xl font-bold text-primary neon-text mb-2 relative z-10"
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              PLAYARTS
+            </motion.h1>
+            
+            <motion.p 
+              className="text-base text-foreground/90 font-medium mb-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              Passport (Wallet)
+            </motion.p>
+            
+            <motion.p 
+              className="text-muted-foreground text-sm mb-8 max-w-xs"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              Your creative identity for the AI generation. Capture, collect, and earn.
+            </motion.p>
+            
+            <motion.div 
+              className="space-y-3 w-full max-w-xs relative z-10"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.6 }}
+            >
               {/* Quick Start - Primary */}
               <Button 
                 className="w-full h-14 text-sm font-display tracking-wider relative overflow-hidden group" 
                 onClick={handleQuickStart}
               >
                 <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary-foreground/10 to-primary/0"
-                  animate={{ x: ['-100%', '100%'] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                  animate={{ x: ['-100%', '200%'] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
                 />
-                <Zap className="w-5 h-5 mr-2" />
-                <div className="flex flex-col items-start">
-                  <span>QUICK START</span>
-                  <span className="text-[10px] opacity-70 font-normal">Get started in seconds</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-primary to-accent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Zap className="w-5 h-5 mr-3 relative z-10" />
+                <div className="flex flex-col items-start relative z-10">
+                  <span className="text-sm">QUICK START</span>
+                  <span className="text-[10px] opacity-80 font-normal font-mono">Get started in seconds</span>
                 </div>
               </Button>
               
               {/* Full Setup - Secondary */}
               <Button 
                 variant="outline" 
-                className="w-full h-12 text-sm font-display tracking-wider border-primary/40"
+                className="w-full h-12 text-sm font-display tracking-wider border-primary/50 hover:bg-primary/10 hover:border-primary transition-all group"
                 onClick={handleFullSetup}
               >
-                <Shield className="w-4 h-4 mr-2" />
-                SECURE SETUP
+                <Shield className="w-4 h-4 mr-2 group-hover:text-primary transition-colors" />
+                <span className="group-hover:text-primary transition-colors">SECURE SETUP</span>
               </Button>
               
               {/* Import - Tertiary */}
               <Button 
                 variant="ghost" 
-                className="w-full h-10 text-xs text-muted-foreground hover:text-foreground"
+                className="w-full h-10 text-xs text-muted-foreground hover:text-primary transition-colors group"
                 onClick={() => { setIsImporting(true); setCurrentStep('import-phrase'); }}
               >
-                <Key className="w-3 h-3 mr-2" />
+                <Key className="w-3 h-3 mr-2 group-hover:rotate-12 transition-transform" />
                 I already have a passport
               </Button>
-            </div>
+            </motion.div>
             
-            <p className="text-[10px] text-muted-foreground mt-8 max-w-xs">
+            <motion.p 
+              className="text-[10px] text-muted-foreground/60 mt-8 max-w-xs"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8 }}
+            >
               By continuing, you agree to our Terms of Service and Privacy Policy
-            </p>
+            </motion.p>
           </motion.div>
         );
 
       case 'features':
         return (
           <motion.div key="features" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}
-            className="flex flex-col h-full px-6 pt-16 pb-8">
+            className="flex flex-col h-full px-6 pt-16 pb-8 relative">
             <StepIndicator currentStep={currentStep} isQuickStart={isQuickStart} />
             
-            <div className="flex-1 flex flex-col items-center justify-center">
+            {/* Background */}
+            <div className="absolute inset-0 cyber-grid opacity-20" />
+            
+            <div className="flex-1 flex flex-col items-center justify-center relative z-10">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={featureIndex}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
+                  initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -30, scale: 0.95 }}
+                  transition={{ duration: 0.4 }}
                   className="text-center"
                 >
                   <motion.div 
-                    className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto mb-6"
-                    animate={{ scale: [1, 1.05, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
+                    className="w-24 h-24 rounded-2xl bg-primary/10 border border-primary/40 flex items-center justify-center mx-auto mb-6 relative overflow-hidden"
+                    animate={{ scale: [1, 1.03, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
                   >
+                    {/* Shimmer effect */}
+                    <motion.div 
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/20 to-transparent"
+                      animate={{ x: ['-100%', '200%'] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                    />
+                    
                     {(() => {
                       const Icon = features[featureIndex].icon;
-                      return <Icon className="w-10 h-10 text-primary" />;
+                      return <Icon className="w-12 h-12 text-primary drop-shadow-[0_0_15px_hsl(75_100%_55%/0.6)]" />;
                     })()}
                   </motion.div>
-                  <h2 className="font-display text-xl font-bold text-foreground mb-2">
+                  <h2 className="font-display text-xl font-bold text-foreground mb-3 neon-text-subtle">
                     {features[featureIndex].title}
                   </h2>
-                  <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                  <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
                     {features[featureIndex].description}
                   </p>
                 </motion.div>
               </AnimatePresence>
               
               {/* Feature dots */}
-              <div className="flex gap-2 mt-8">
+              <div className="flex gap-3 mt-10">
                 {features.map((_, i) => (
-                  <button
+                  <motion.button
                     key={i}
                     onClick={() => setFeatureIndex(i)}
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      i === featureIndex ? 'bg-primary w-6' : 'bg-muted'
+                    className={`h-2 rounded-full transition-all ${
+                      i === featureIndex 
+                        ? 'bg-primary w-8 shadow-[0_0_10px_hsl(75_100%_55%/0.6)]' 
+                        : 'bg-muted/50 w-2 hover:bg-muted'
                     }`}
+                    whileHover={{ scale: 1.2 }}
+                    whileTap={{ scale: 0.9 }}
                   />
                 ))}
               </div>
             </div>
             
             <Button 
-              className="w-full h-12 text-sm font-display tracking-wider" 
+              className="w-full h-12 text-sm font-display tracking-wider relative overflow-hidden group" 
               onClick={() => setCurrentStep(isQuickStart ? 'set-pin' : 'create-wallet')}
             >
-              LET'S GO <ArrowRight className="w-4 h-4 ml-2" />
+              <motion.div 
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                animate={{ x: ['-100%', '200%'] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+              />
+              <span className="relative z-10">LET'S GO</span>
+              <ArrowRight className="w-4 h-4 ml-2 relative z-10 group-hover:translate-x-1 transition-transform" />
             </Button>
           </motion.div>
         );
