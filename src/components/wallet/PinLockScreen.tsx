@@ -224,10 +224,10 @@ export function PinLockScreen({ onUnlock }: PinLockScreenProps) {
         ))}
       </div>
 
-      {/* Forgot PIN */}
-      <button className="mt-8 text-xs text-muted-foreground hover:text-primary transition-colors">
-        Forgot PIN? Use Recovery Key
-      </button>
+      {/* Demo Mode Notice - removed non-functional recovery link */}
+      <p className="mt-8 text-[10px] text-muted-foreground/60 text-center max-w-xs">
+        Demo Mode: Data is stored locally in your browser session only.
+      </p>
     </div>
   );
 }
