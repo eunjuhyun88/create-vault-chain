@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,25 +30,66 @@ const VIRAL_THRESHOLDS = {
   views_per_hour: 1000,
 };
 
-interface TrackingPayload {
-  platform: string;
-  platform_post_id: string;
-  author_id?: string;
-  author_handle?: string;
-  content?: string;
-  media_urls?: string[];
-  phash?: string;
-  posted_at?: string;
-  engagement?: {
-    views?: number;
-    likes?: number;
-    shares?: number;
-    comments?: number;
-    saves?: number;
-  };
-  passport_id?: string;
-  match_type?: string;
-  has_credit?: boolean;
+// Input validation schemas
+const PlatformSchema = z.enum(['farcaster', 'twitter', 'reddit', 'tiktok', 'instagram']);
+const MatchTypeSchema = z.enum(['exact', 'variant', 'derivative']);
+
+const EngagementSchema = z.object({
+  views: z.number().int().min(0).max(1000000000).optional(),
+  likes: z.number().int().min(0).max(1000000000).optional(),
+  shares: z.number().int().min(0).max(1000000000).optional(),
+  comments: z.number().int().min(0).max(1000000000).optional(),
+  saves: z.number().int().min(0).max(1000000000).optional(),
+});
+
+const TrackPostSchema = z.object({
+  platform: PlatformSchema,
+  platform_post_id: z.string().min(1).max(255),
+  author_id: z.string().max(255).optional(),
+  author_handle: z.string().max(255).optional(),
+  content: z.string().max(10000).optional(),
+  media_urls: z.array(z.string().url().max(2000)).max(50).optional(),
+  phash: z.string().regex(/^[0-9a-fA-F]*$/).max(64).optional(),
+  posted_at: z.string().datetime().optional(),
+  engagement: EngagementSchema.optional(),
+  passport_id: z.string().uuid().optional(),
+  match_type: MatchTypeSchema.optional(),
+  has_credit: z.boolean().optional(),
+});
+
+const UpdateEngagementSchema = z.object({
+  tracked_post_id: z.string().uuid(),
+  engagement: EngagementSchema,
+});
+
+const GetTrackingStatsSchema = z.object({
+  passport_id: z.string().uuid(),
+});
+
+// Helper to extract and validate user from auth header
+async function getAuthenticatedUser(req: Request, supabase: any) {
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader) {
+    return { user: null, error: null };
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  return { user, error };
+}
+
+// Helper to verify passport ownership
+async function verifyPassportOwnership(supabase: any, passportId: string, userId: string | null): Promise<boolean> {
+  if (!passportId) return true;
+  
+  const { data: passport } = await supabase
+    .from('passports')
+    .select('user_id')
+    .eq('id', passportId)
+    .single();
+  
+  // Allow if passport has no user_id (demo) or matches authenticated user
+  return !passport?.user_id || passport.user_id === userId;
 }
 
 Deno.serve(async (req) => {
@@ -62,11 +104,33 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { action, data } = await req.json();
-    console.log(`[MemePing Track] Action: ${action}`, data);
+    console.log(`[MemePing Track] Action: ${action}`);
+
+    // Get authenticated user
+    const { user } = await getAuthenticatedUser(req, supabase);
 
     switch (action) {
       case 'track_post': {
-        const payload = data as TrackingPayload;
+        // Validate input
+        const parseResult = TrackPostSchema.safeParse(data);
+        if (!parseResult.success) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid input', details: parseResult.error.errors }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        const payload = parseResult.data;
+
+        // Verify passport ownership if passport_id provided
+        if (payload.passport_id) {
+          const isOwner = await verifyPassportOwnership(supabase, payload.passport_id, user?.id || null);
+          if (!isOwner) {
+            return new Response(
+              JSON.stringify({ error: 'Forbidden: Cannot track posts for passports you do not own' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
         
         // Insert or update tracked post
         const { data: trackedPost, error: postError } = await supabase
@@ -137,7 +201,15 @@ Deno.serve(async (req) => {
       }
 
       case 'update_engagement': {
-        const { tracked_post_id, engagement } = data;
+        // Validate input
+        const parseResult = UpdateEngagementSchema.safeParse(data);
+        if (!parseResult.success) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid input', details: parseResult.error.errors }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        const { tracked_post_id, engagement } = parseResult.data;
 
         const { error } = await supabase
           .from('engagement_snapshots')
@@ -159,7 +231,24 @@ Deno.serve(async (req) => {
       }
 
       case 'get_tracking_stats': {
-        const { passport_id } = data;
+        // Validate input
+        const parseResult = GetTrackingStatsSchema.safeParse(data);
+        if (!parseResult.success) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid input', details: parseResult.error.errors }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        const { passport_id } = parseResult.data;
+
+        // Verify passport ownership for stats access
+        const isOwner = await verifyPassportOwnership(supabase, passport_id, user?.id || null);
+        if (!isOwner) {
+          return new Response(
+            JSON.stringify({ error: 'Forbidden: Cannot view stats for passports you do not own' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
         // Get all matches for passport
         const { data: matches, error: matchError } = await supabase

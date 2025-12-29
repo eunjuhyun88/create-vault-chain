@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,6 +32,47 @@ interface PIMCalculation {
   post_count: number;
 }
 
+// Input validation schemas
+const CalculatePIMSchema = z.object({
+  passport_id: z.string().uuid(),
+  epoch: z.number().int().min(1).max(1000).optional().default(1),
+});
+
+const GetPIMSchema = z.object({
+  passport_id: z.string().uuid(),
+  epoch: z.number().int().min(1).max(1000).optional(),
+});
+
+const GetLeaderboardSchema = z.object({
+  epoch: z.number().int().min(1).max(1000).optional(),
+  limit: z.number().int().min(1).max(100).optional().default(100),
+  offset: z.number().int().min(0).optional().default(0),
+});
+
+// Helper to extract and validate user from auth header
+async function getAuthenticatedUser(req: Request, supabase: any) {
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader) {
+    return { user: null, error: null };
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  return { user, error };
+}
+
+// Helper to verify passport ownership
+async function verifyPassportOwnership(supabase: any, passportId: string, userId: string | null): Promise<boolean> {
+  const { data: passport } = await supabase
+    .from('passports')
+    .select('user_id')
+    .eq('id', passportId)
+    .single();
+  
+  // Allow if passport has no user_id (demo) or matches authenticated user
+  return !passport?.user_id || passport.user_id === userId;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -42,11 +84,31 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { action, data } = await req.json();
-    console.log(`[MemePing PIM] Action: ${action}`, data);
+    console.log(`[MemePing PIM] Action: ${action}`);
+
+    // Get authenticated user
+    const { user } = await getAuthenticatedUser(req, supabase);
 
     switch (action) {
       case 'calculate_pim': {
-        const { passport_id, epoch = 1 } = data;
+        // Validate input
+        const parseResult = CalculatePIMSchema.safeParse(data);
+        if (!parseResult.success) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid input', details: parseResult.error.errors }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        const { passport_id, epoch } = parseResult.data;
+
+        // Verify passport ownership for PIM calculation
+        const isOwner = await verifyPassportOwnership(supabase, passport_id, user?.id || null);
+        if (!isOwner) {
+          return new Response(
+            JSON.stringify({ error: 'Forbidden: Cannot calculate PIM for passports you do not own' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
         // Get all matches and their engagement for this passport
         const { data: matches, error: matchError } = await supabase
@@ -150,7 +212,24 @@ Deno.serve(async (req) => {
       }
 
       case 'get_pim': {
-        const { passport_id, epoch } = data;
+        // Validate input
+        const parseResult = GetPIMSchema.safeParse(data);
+        if (!parseResult.success) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid input', details: parseResult.error.errors }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        const { passport_id, epoch } = parseResult.data;
+
+        // Verify passport ownership for viewing PIM
+        const isOwner = await verifyPassportOwnership(supabase, passport_id, user?.id || null);
+        if (!isOwner) {
+          return new Response(
+            JSON.stringify({ error: 'Forbidden: Cannot view PIM for passports you do not own' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
         let query = supabase
           .from('pim_calculations')
@@ -189,9 +268,17 @@ Deno.serve(async (req) => {
       }
 
       case 'get_leaderboard': {
-        const { epoch, limit = 100, offset = 0 } = data;
+        // Validate input
+        const parseResult = GetLeaderboardSchema.safeParse(data);
+        if (!parseResult.success) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid input', details: parseResult.error.errors }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        const { epoch, limit, offset } = parseResult.data;
 
-        // Get latest PIM calculations grouped by passport
+        // Leaderboard is public (aggregate data only, no sensitive info)
         const { data: calculations, error } = await supabase
           .from('pim_calculations')
           .select(`
@@ -201,8 +288,7 @@ Deno.serve(async (req) => {
             passports!inner (
               acp_id,
               prompt,
-              preview_url,
-              user_id
+              preview_url
             )
           `)
           .eq('epoch', epoch || 1)
@@ -222,7 +308,12 @@ Deno.serve(async (req) => {
             passportScores[calc.passport_id] = {
               passport_id: calc.passport_id,
               total_pim: 0,
-              passport: calc.passports,
+              passport: {
+                acp_id: calc.passports.acp_id,
+                prompt: calc.passports.prompt,
+                preview_url: calc.passports.preview_url,
+                // Exclude user_id from public leaderboard
+              },
             };
           }
           passportScores[calc.passport_id].total_pim += 
