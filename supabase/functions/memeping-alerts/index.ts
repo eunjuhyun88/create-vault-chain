@@ -40,6 +40,45 @@ const GetUnreadCountSchema = z.object({
   user_id: z.string().uuid().nullable().optional(),
 });
 
+// Custom validator for secure webhook URLs (HTTPS only, no internal IPs)
+const secureWebhookUrl = z.string().url().max(500).refine(
+  (url) => {
+    try {
+      const parsed = new URL(url);
+      // Only allow HTTPS protocol
+      if (parsed.protocol !== 'https:') {
+        return false;
+      }
+      // Block internal/private IP addresses to prevent SSRF
+      const hostname = parsed.hostname.toLowerCase();
+      const blockedPatterns = [
+        /^localhost$/i,
+        /^127\./,
+        /^10\./,
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+        /^192\.168\./,
+        /^0\.0\.0\.0$/,
+        /^::1$/,
+        /^\[::1\]$/,
+      ];
+      for (const pattern of blockedPatterns) {
+        if (pattern.test(hostname)) {
+          return false;
+        }
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  { message: 'Webhook URL must be HTTPS and not target internal addresses' }
+).nullable().optional();
+
+// Custom validator for Telegram chat ID (numeric only)
+const telegramChatId = z.string().max(100).regex(/^-?\d+$/, {
+  message: 'Telegram chat ID must be a numeric value'
+}).nullable().optional();
+
 const PreferencesSchema = z.object({
   viral_alerts: z.boolean().optional(),
   repost_alerts: z.boolean().optional(),
@@ -48,8 +87,8 @@ const PreferencesSchema = z.object({
   ranking_alerts: z.boolean().optional(),
   viral_threshold: z.number().int().min(1).max(1000000).optional(),
   channels: z.array(z.string().max(50)).max(10).optional(),
-  webhook_url: z.string().url().max(500).nullable().optional(),
-  telegram_chat_id: z.string().max(100).nullable().optional(),
+  webhook_url: secureWebhookUrl,
+  telegram_chat_id: telegramChatId,
 });
 
 const UpdatePreferencesSchema = z.object({
