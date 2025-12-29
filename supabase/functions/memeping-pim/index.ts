@@ -304,14 +304,15 @@ Deno.serve(async (req) => {
         }> = {};
 
         for (const calc of calculations || []) {
+          const passportData = calc.passports as any;
           if (!passportScores[calc.passport_id]) {
             passportScores[calc.passport_id] = {
               passport_id: calc.passport_id,
               total_pim: 0,
               passport: {
-                acp_id: calc.passports.acp_id,
-                prompt: calc.passports.prompt,
-                preview_url: calc.passports.preview_url,
+                acp_id: passportData?.acp_id,
+                prompt: passportData?.prompt,
+                preview_url: passportData?.preview_url,
                 // Exclude user_id from public leaderboard
               },
             };
