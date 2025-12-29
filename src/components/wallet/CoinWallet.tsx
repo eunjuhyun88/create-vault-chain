@@ -4,12 +4,22 @@ import { useWallet } from '@/contexts/WalletContext';
 import { Transaction } from '@/types/wallet';
 import { 
   Wallet, Send, QrCode, ArrowUpRight, ArrowDownLeft, Gift, 
-  Sparkles, Copy, Check, ChevronRight, X, ExternalLink
+  Sparkles, Copy, Check, ChevronRight, X, ExternalLink, AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface CoinWalletProps {
   onClose?: () => void;
@@ -34,7 +44,12 @@ export function CoinWallet({ onClose }: CoinWalletProps) {
   const [isSending, setIsSending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
+  const [showLargeTransactionDialog, setShowLargeTransactionDialog] = useState(false);
+  const [pendingTransaction, setPendingTransaction] = useState<{ address: string; amount: number; memo?: string } | null>(null);
   const { toast } = useToast();
+
+  // Threshold for large transaction confirmation
+  const LARGE_TRANSACTION_THRESHOLD = 10000;
 
   const handleCopyAddress = () => {
     navigator.clipboard.writeText(wallet.address);
@@ -67,6 +82,31 @@ export function CoinWallet({ onClose }: CoinWalletProps) {
   const handleMemoChange = (value: string) => {
     if (value.length <= MAX_MEMO_LENGTH) {
       setSendMemo(value);
+    }
+  };
+
+  // Execute the actual transaction
+  const executeTransaction = async (address: string, amount: number, memo?: string) => {
+    setIsSending(true);
+    try {
+      await sendTokens(address, amount, memo);
+      toast({ title: 'Transaction sent!', description: `${amount} PLART sent successfully.` });
+      setSendAddress('');
+      setSendAmount('');
+      setSendMemo('');
+      setActiveTab('history');
+    } catch (err) {
+      toast({ title: 'Transaction failed', variant: 'destructive' });
+    }
+    setIsSending(false);
+    setPendingTransaction(null);
+  };
+
+  // Handle confirmed large transaction
+  const handleConfirmLargeTransaction = async () => {
+    setShowLargeTransactionDialog(false);
+    if (pendingTransaction) {
+      await executeTransaction(pendingTransaction.address, pendingTransaction.amount, pendingTransaction.memo);
     }
   };
 
@@ -134,18 +174,15 @@ export function CoinWallet({ onClose }: CoinWalletProps) {
     // Sanitize memo before sending
     const sanitizedMemo = sendMemo ? sanitizeMemo(sendMemo) : undefined;
 
-    setIsSending(true);
-    try {
-      await sendTokens(sendAddress, roundedAmount, sanitizedMemo);
-      toast({ title: 'Transaction sent!', description: `${roundedAmount} PLART sent successfully.` });
-      setSendAddress('');
-      setSendAmount('');
-      setSendMemo('');
-      setActiveTab('history');
-    } catch (err) {
-      toast({ title: 'Transaction failed', variant: 'destructive' });
+    // Show confirmation dialog for large transactions
+    if (roundedAmount >= LARGE_TRANSACTION_THRESHOLD) {
+      setPendingTransaction({ address: sendAddress, amount: roundedAmount, memo: sanitizedMemo });
+      setShowLargeTransactionDialog(true);
+      return;
     }
-    setIsSending(false);
+
+    // Execute transaction directly for smaller amounts
+    await executeTransaction(sendAddress, roundedAmount, sanitizedMemo);
   };
 
   const handleClaimPIM = async () => {
@@ -325,6 +362,61 @@ export function CoinWallet({ onClose }: CoinWalletProps) {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Large Transaction Confirmation Dialog */}
+      <AlertDialog open={showLargeTransactionDialog} onOpenChange={setShowLargeTransactionDialog}>
+        <AlertDialogContent className="glass-card border-warning/30">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-warning">
+              <AlertTriangle className="w-5 h-5" />
+              Large Transaction Warning
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                You are about to send a large amount of tokens:
+              </p>
+              <div className="glass-card p-3 rounded-lg space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Amount:</span>
+                  <span className="font-semibold text-primary">
+                    {pendingTransaction?.amount.toLocaleString()} PLART
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Value:</span>
+                  <span className="text-foreground">
+                    ≈ ${((pendingTransaction?.amount ?? 0) * 0.015).toFixed(2)} USD
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">To:</span>
+                  <span className="font-mono text-xs text-foreground truncate max-w-[180px]">
+                    {pendingTransaction?.address}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Please verify all details before confirming. This action cannot be undone.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => setPendingTransaction(null)}
+              className="border-muted-foreground/30"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmLargeTransaction}
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
+              disabled={isSending}
+            >
+              {isSending ? 'Sending...' : 'Confirm & Send'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
