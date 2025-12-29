@@ -2,13 +2,15 @@
 // Handles state management and communication between popup and content scripts
 
 const SUPABASE_URL = 'https://sfunjjklsgubgtudfkcz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmdW5qamtsc2d1Ymd0dWRma2N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTI3NTIsImV4cCI6MjA4MjQ4ODc1Mn0.12jvUwRSJKrOWyg3eO_NPp43uWGsPyXtmQkeer6HGNk';
 
 // Storage keys
 const STORAGE_KEYS = {
   WALLET: 'playarts_wallet',
   SCANNED_ASSETS: 'scanned_assets',
   SESSION: 'ai_session',
-  SETTINGS: 'settings'
+  SETTINGS: 'settings',
+  SYNC_QUEUE: 'sync_queue'
 };
 
 // AI Service detection patterns
@@ -60,7 +62,8 @@ let state = {
   isScanning: false,
   activeTab: null,
   scannedAssets: [],
-  currentService: null
+  currentService: null,
+  isSyncing: false
 };
 
 // Initialize extension
@@ -70,8 +73,10 @@ chrome.runtime.onInstalled.addListener(async () => {
   // Initialize storage
   await chrome.storage.local.set({
     [STORAGE_KEYS.SCANNED_ASSETS]: [],
+    [STORAGE_KEYS.SYNC_QUEUE]: [],
     [STORAGE_KEYS.SETTINGS]: {
       autoScan: true,
+      autoSync: true,
       notifications: true,
       autoLock: 5
     }
@@ -145,7 +150,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({
         isScanning: state.isScanning,
         currentService: state.currentService,
-        scannedAssets: state.scannedAssets
+        scannedAssets: state.scannedAssets,
+        isSyncing: state.isSyncing
       });
       break;
       
@@ -166,15 +172,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
       
     case 'ASSET_DETECTED':
-      handleAssetDetected(message.asset, sender.tab?.id);
-      sendResponse({ success: true });
-      break;
+      handleAssetDetected(message.asset, sender.tab?.id).then(sendResponse);
+      return true;
       
     case 'GET_SCANNED_ASSETS':
       chrome.storage.local.get(STORAGE_KEYS.SCANNED_ASSETS).then(result => {
         sendResponse(result[STORAGE_KEYS.SCANNED_ASSETS] || []);
       });
-      return true; // Keep channel open for async response
+      return true;
       
     case 'CLEAR_ASSETS':
       state.scannedAssets = [];
@@ -184,6 +189,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
     case 'MINT_ASSET':
       handleMintAsset(message.assetId).then(sendResponse);
+      return true;
+      
+    case 'SYNC_TO_BACKEND':
+      syncAssetsToBackend().then(sendResponse);
+      return true;
+      
+    case 'GET_SYNC_STATUS':
+      chrome.storage.local.get(STORAGE_KEYS.SYNC_QUEUE).then(result => {
+        sendResponse({
+          pendingCount: (result[STORAGE_KEYS.SYNC_QUEUE] || []).length,
+          isSyncing: state.isSyncing
+        });
+      });
       return true;
       
     default:
@@ -200,17 +218,21 @@ async function handleAssetDetected(asset, tabId) {
     ...asset,
     source_ai: state.currentService?.id || 'unknown',
     status: 'captured',
+    synced: false,
     created_at: new Date().toISOString(),
     tabId: tabId
   };
   
   state.scannedAssets.push(newAsset);
   
-  // Save to storage
+  // Save to local storage
   const stored = await chrome.storage.local.get(STORAGE_KEYS.SCANNED_ASSETS);
   const assets = stored[STORAGE_KEYS.SCANNED_ASSETS] || [];
   assets.push(newAsset);
   await chrome.storage.local.set({ [STORAGE_KEYS.SCANNED_ASSETS]: assets });
+  
+  // Add to sync queue
+  await addToSyncQueue(newAsset);
   
   // Notify popup
   chrome.runtime.sendMessage({
@@ -225,10 +247,114 @@ async function handleAssetDetected(asset, tabId) {
     chrome.action.setBadgeBackgroundColor({ color: '#8B5CF6' });
   }
   
+  // Auto-sync if enabled
+  if (settings[STORAGE_KEYS.SETTINGS]?.autoSync) {
+    syncAssetsToBackend();
+  }
+  
   console.log('[PlayArts] Asset captured:', newAsset.id);
+  return { success: true, asset: newAsset };
 }
 
-// Handle minting request
+// Add asset to sync queue
+async function addToSyncQueue(asset) {
+  const stored = await chrome.storage.local.get(STORAGE_KEYS.SYNC_QUEUE);
+  const queue = stored[STORAGE_KEYS.SYNC_QUEUE] || [];
+  queue.push({
+    id: asset.id,
+    prompt: asset.prompt,
+    preview_url: asset.preview_url,
+    source_ai: asset.source_ai,
+    asset_type: asset.asset_type,
+    metadata: asset.metadata,
+    created_at: asset.created_at
+  });
+  await chrome.storage.local.set({ [STORAGE_KEYS.SYNC_QUEUE]: queue });
+}
+
+// Sync assets to backend
+async function syncAssetsToBackend() {
+  if (state.isSyncing) {
+    console.log('[PlayArts] Sync already in progress');
+    return { success: false, error: 'Sync in progress' };
+  }
+  
+  state.isSyncing = true;
+  
+  try {
+    const stored = await chrome.storage.local.get(STORAGE_KEYS.SYNC_QUEUE);
+    const queue = stored[STORAGE_KEYS.SYNC_QUEUE] || [];
+    
+    if (queue.length === 0) {
+      console.log('[PlayArts] Nothing to sync');
+      state.isSyncing = false;
+      return { success: true, synced: 0 };
+    }
+    
+    console.log('[PlayArts] Syncing', queue.length, 'assets to backend');
+    
+    // Call the edge function
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/extension-sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({
+        action: 'save_batch_assets',
+        data: { assets: queue }
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Sync failed: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('[PlayArts] Sync successful:', result);
+    
+    // Clear the sync queue
+    await chrome.storage.local.set({ [STORAGE_KEYS.SYNC_QUEUE]: [] });
+    
+    // Mark assets as synced in local storage
+    const assetsStored = await chrome.storage.local.get(STORAGE_KEYS.SCANNED_ASSETS);
+    const assets = assetsStored[STORAGE_KEYS.SCANNED_ASSETS] || [];
+    const syncedIds = queue.map(a => a.id);
+    
+    const updatedAssets = assets.map(asset => {
+      if (syncedIds.includes(asset.id)) {
+        return { ...asset, synced: true };
+      }
+      return asset;
+    });
+    
+    await chrome.storage.local.set({ [STORAGE_KEYS.SCANNED_ASSETS]: updatedAssets });
+    
+    // Notify popup
+    chrome.runtime.sendMessage({
+      type: 'SYNC_COMPLETE',
+      count: result.count || queue.length
+    }).catch(() => {});
+    
+    state.isSyncing = false;
+    return { success: true, synced: result.count || queue.length };
+    
+  } catch (error) {
+    console.error('[PlayArts] Sync error:', error);
+    state.isSyncing = false;
+    
+    chrome.runtime.sendMessage({
+      type: 'SYNC_ERROR',
+      error: error.message
+    }).catch(() => {});
+    
+    return { success: false, error: error.message };
+  }
+}
+
+// Handle minting request - now syncs with backend
 async function handleMintAsset(assetId) {
   try {
     const stored = await chrome.storage.local.get(STORAGE_KEYS.SCANNED_ASSETS);
@@ -239,7 +365,37 @@ async function handleMintAsset(assetId) {
       return { success: false, error: 'Asset not found' };
     }
     
-    // Update asset status
+    const asset = assets[assetIndex];
+    
+    // If asset has a backend ID, mint via backend
+    if (asset.backend_id) {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/extension-sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
+          action: 'mint_to_passport',
+          data: { scanned_asset_id: asset.backend_id }
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        assets[assetIndex].status = 'minted';
+        assets[assetIndex].minted_at = new Date().toISOString();
+        assets[assetIndex].acp_id = result.passport?.acp_id;
+        assets[assetIndex].passport_id = result.passport?.id;
+        
+        await chrome.storage.local.set({ [STORAGE_KEYS.SCANNED_ASSETS]: assets });
+        
+        return { success: true, asset: assets[assetIndex], passport: result.passport };
+      }
+    }
+    
+    // Fallback: Local minting
     assets[assetIndex].status = 'minted';
     assets[assetIndex].minted_at = new Date().toISOString();
     assets[assetIndex].acp_id = generateAcpId();
@@ -248,6 +404,7 @@ async function handleMintAsset(assetId) {
     
     return { success: true, asset: assets[assetIndex] };
   } catch (error) {
+    console.error('[PlayArts] Mint error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -268,10 +425,25 @@ function generateAcpId() {
   return id;
 }
 
-// Keep service worker alive
+// Periodic sync check
+chrome.alarms.create('syncCheck', { periodInMinutes: 1 });
 chrome.alarms.create('keepAlive', { periodInMinutes: 0.5 });
-chrome.alarms.onAlarm.addListener((alarm) => {
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'keepAlive') {
     console.log('[PlayArts] Service worker heartbeat');
+  }
+  
+  if (alarm.name === 'syncCheck') {
+    const settings = await chrome.storage.local.get(STORAGE_KEYS.SETTINGS);
+    if (settings[STORAGE_KEYS.SETTINGS]?.autoSync) {
+      const stored = await chrome.storage.local.get(STORAGE_KEYS.SYNC_QUEUE);
+      const queue = stored[STORAGE_KEYS.SYNC_QUEUE] || [];
+      
+      if (queue.length > 0) {
+        console.log('[PlayArts] Auto-syncing', queue.length, 'pending assets');
+        syncAssetsToBackend();
+      }
+    }
   }
 });
