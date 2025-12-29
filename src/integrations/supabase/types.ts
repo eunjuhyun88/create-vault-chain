@@ -14,16 +14,106 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      passports: {
+        Row: {
+          acp_id: string
+          asset_type: Database["public"]["Enums"]["asset_type"]
+          created_at: string
+          id: string
+          metadata: Json | null
+          minted_at: string | null
+          preview_url: string | null
+          prompt: string
+          source_ai: Database["public"]["Enums"]["ai_service"]
+          status: Database["public"]["Enums"]["asset_status"]
+          trust_level: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          acp_id: string
+          asset_type?: Database["public"]["Enums"]["asset_type"]
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          minted_at?: string | null
+          preview_url?: string | null
+          prompt: string
+          source_ai: Database["public"]["Enums"]["ai_service"]
+          status?: Database["public"]["Enums"]["asset_status"]
+          trust_level?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          acp_id?: string
+          asset_type?: Database["public"]["Enums"]["asset_type"]
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          minted_at?: string | null
+          preview_url?: string | null
+          prompt?: string
+          source_ai?: Database["public"]["Enums"]["ai_service"]
+          status?: Database["public"]["Enums"]["asset_status"]
+          trust_level?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      scanned_assets: {
+        Row: {
+          asset_type: Database["public"]["Enums"]["asset_type"]
+          created_at: string
+          id: string
+          preview_url: string | null
+          prompt: string
+          source_ai: Database["public"]["Enums"]["ai_service"]
+          status: Database["public"]["Enums"]["asset_status"]
+          user_id: string | null
+        }
+        Insert: {
+          asset_type?: Database["public"]["Enums"]["asset_type"]
+          created_at?: string
+          id?: string
+          preview_url?: string | null
+          prompt: string
+          source_ai: Database["public"]["Enums"]["ai_service"]
+          status?: Database["public"]["Enums"]["asset_status"]
+          user_id?: string | null
+        }
+        Update: {
+          asset_type?: Database["public"]["Enums"]["asset_type"]
+          created_at?: string
+          id?: string
+          preview_url?: string | null
+          prompt?: string
+          source_ai?: Database["public"]["Enums"]["ai_service"]
+          status?: Database["public"]["Enums"]["asset_status"]
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_acp_id: { Args: never; Returns: string }
     }
     Enums: {
-      [_ in never]: never
+      ai_service:
+        | "midjourney"
+        | "dalle"
+        | "stable"
+        | "runway"
+        | "sora"
+        | "firefly"
+        | "veo"
+        | "chatgpt"
+      asset_status: "scanning" | "captured" | "minted"
+      asset_type: "image" | "video" | "text"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +240,19 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      ai_service: [
+        "midjourney",
+        "dalle",
+        "stable",
+        "runway",
+        "sora",
+        "firefly",
+        "veo",
+        "chatgpt",
+      ],
+      asset_status: ["scanning", "captured", "minted"],
+      asset_type: ["image", "video", "text"],
+    },
   },
 } as const
